@@ -1,0 +1,54 @@
+[package]
+name = "run"
+version = "0.1.0"
+edition = "2021"
+authors = ["Verseles"]
+description = "Universal task runner for modern development"
+license = "AGPL-3.0"
+readme = "README.md"
+repository = "https://github.com/verseles/run"
+
+[dependencies]
+clap = { version = "4.5", features = ["derive"] }
+tokio = { version = "1.36", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+toml = "0.8"
+thiserror = "1.0"
+anyhow = "1.0"
+which = "6.0"
+owo-colors = "4.0"
+reqwest = { version = "0.11", features = ["json", "blocking", "rustls-tls"] }
+semver = "1.0"
+directories = "5.0"
+# For self updates
+self_update = "0.39"
+# Alternatively use reqwest and manual replacement as per plan, but self_update handles a lot.
+# Plan says "pesquisar e avaliar self_update crate ou implementação custom".
+# self_update is good but might not support all the specific custom logic requested (async detached process).
+# The plan specifically asks for a detached process logic that might be better custom implemented or using self_update in a specific way.
+# I will stick to reqwest + semver + manual logic for the detached update to strictly follow the "Fluxo de execução" in the plan.
+# So I will remove self_update dependency and use reqwest.
+tempfile = "3.10"
+zip = "0.6" # For extracting windows updates if needed, though plan mentions single binaries usually.
+# Actually, the plan says "Baixa asset apropriado... Substitui binário".
+# If the asset is compressed (tar.gz/zip), I need to decompress.
+# The plan mentions "Comprimir (tar.gz para Unix, zip para Windows)" in the Release Job.
+# So I need decompression crates.
+flate2 = "1.0"
+tar = "0.4"
+clap_complete = "4.5"
+chrono = { version = "0.4.42", features = ["serde"] }
+self-replace = "1.5.0"
+
+[dev-dependencies]
+assert_cmd = "2.0"
+predicates = "3.1"
+tempfile = "3.10"
+
+[profile.release]
+lto = true
+strip = true
+panic = "abort"
+opt-level = "z"
+codegen-units = 1
