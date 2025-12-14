@@ -17,23 +17,16 @@ use std::path::Path;
 pub fn detect(dir: &Path) -> Vec<DetectedRunner> {
     let mut runners = Vec::new();
 
-    let makefile = dir.join("Makefile");
-    let makefile_lower = dir.join("makefile");
-
-    if makefile.exists() {
-        runners.push(DetectedRunner::new(
-            "make",
-            "Makefile",
-            Ecosystem::Generic,
-            21,
-        ));
-    } else if makefile_lower.exists() {
-        runners.push(DetectedRunner::new(
-            "make",
-            "makefile",
-            Ecosystem::Generic,
-            21,
-        ));
+    // Use read_dir to get exact filename (case-sensitive on all platforms)
+    if let Ok(entries) = std::fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            if let Some(name) = entry.file_name().to_str() {
+                if name == "Makefile" || name == "makefile" {
+                    runners.push(DetectedRunner::new("make", name, Ecosystem::Generic, 21));
+                    break;
+                }
+            }
+        }
     }
 
     runners
