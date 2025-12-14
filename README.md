@@ -33,11 +33,13 @@
 ### Quick Install (Recommended)
 
 **Linux/macOS:**
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/verseles/run/main/install.sh | bash
 ```
 
 **Windows (PowerShell):**
+
 ```powershell
 irm https://raw.githubusercontent.com/verseles/run/main/install.ps1 | iex
 ```
@@ -54,29 +56,29 @@ Download the latest release from the [Releases page](https://github.com/verseles
 
 ## 🎯 Supported Runners
 
-| Ecosystem | Tool | Detection | Command |
-|-----------|------|-----------|---------|
-| **Node.js** | Bun | `bun.lockb` / `bun.lock` | `bun run <cmd>` |
-| | PNPM | `pnpm-lock.yaml` | `pnpm run <cmd>` |
-| | Yarn | `yarn.lock` | `yarn run <cmd>` |
-| | NPM | `package-lock.json` / `package.json` | `npm run <cmd>` |
-| **Python** | UV | `uv.lock` | `uv run <cmd>` |
-| | Poetry | `poetry.lock` | `poetry run <cmd>` |
-| | Pipenv | `Pipfile.lock` | `pipenv run <cmd>` |
-| | Pip | `requirements.txt` | `python -m <cmd>` |
-| **Rust** | Cargo | `Cargo.toml` | `cargo <cmd>` |
-| **PHP** | Composer | `composer.lock` | `composer run <cmd>` |
-| **Go** | Task | `Taskfile.yml` | `task <cmd>` |
-| | Go | `go.mod` | `go <cmd>` |
-| **Ruby** | Bundler | `Gemfile.lock` | `bundle exec <cmd>` |
-| | Rake | `Rakefile` | `rake <cmd>` |
-| **Java** | Gradle | `build.gradle` | `gradle <cmd>` |
-| | Maven | `pom.xml` | `mvn <cmd>` |
-| **.NET** | dotnet | `*.csproj` / `*.sln` | `dotnet <cmd>` |
-| **Elixir** | Mix | `mix.exs` | `mix <cmd>` |
-| **Swift** | SPM | `Package.swift` | `swift run <cmd>` |
-| **Zig** | Zig | `build.zig` | `zig build <cmd>` |
-| **Generic** | Make | `Makefile` | `make <cmd>` |
+| Ecosystem   | Tool     | Detection                            | Command              |
+| ----------- | -------- | ------------------------------------ | -------------------- |
+| **Node.js** | Bun      | `bun.lockb` / `bun.lock`             | `bun run <cmd>`      |
+|             | PNPM     | `pnpm-lock.yaml`                     | `pnpm run <cmd>`     |
+|             | Yarn     | `yarn.lock`                          | `yarn run <cmd>`     |
+|             | NPM      | `package-lock.json` / `package.json` | `npm run <cmd>`      |
+| **Python**  | UV       | `uv.lock`                            | `uv run <cmd>`       |
+|             | Poetry   | `poetry.lock`                        | `poetry run <cmd>`   |
+|             | Pipenv   | `Pipfile.lock`                       | `pipenv run <cmd>`   |
+|             | Pip      | `requirements.txt`                   | `python -m <cmd>`    |
+| **Rust**    | Cargo    | `Cargo.toml`                         | `cargo <cmd>`        |
+| **PHP**     | Composer | `composer.lock`                      | `composer run <cmd>` |
+| **Go**      | Task     | `Taskfile.yml`                       | `task <cmd>`         |
+|             | Go       | `go.mod`                             | `go <cmd>`           |
+| **Ruby**    | Bundler  | `Gemfile.lock`                       | `bundle exec <cmd>`  |
+|             | Rake     | `Rakefile`                           | `rake <cmd>`         |
+| **Java**    | Gradle   | `build.gradle`                       | `gradle <cmd>`       |
+|             | Maven    | `pom.xml`                            | `mvn <cmd>`          |
+| **.NET**    | dotnet   | `*.csproj` / `*.sln`                 | `dotnet <cmd>`       |
+| **Elixir**  | Mix      | `mix.exs`                            | `mix <cmd>`          |
+| **Swift**   | SPM      | `Package.swift`                      | `swift run <cmd>`    |
+| **Zig**     | Zig      | `build.zig`                          | `zig build <cmd>`    |
+| **Generic** | Make     | `Makefile`                           | `make <cmd>`         |
 
 ## 📖 Usage
 
@@ -181,16 +183,22 @@ ignore_tools = ["yarn"]
 Generate completions for your shell:
 
 ```bash
-# Bash
-run completions bash > /usr/share/bash-completion/completions/run
+# Bash (add to ~/.bashrc)
+mkdir -p ~/.local/share/bash-completion/completions
+run completions bash > ~/.local/share/bash-completion/completions/run
 
-# Zsh
+# Zsh (add to ~/.zshrc)
+mkdir -p ~/.zsh/completion
 run completions zsh > ~/.zsh/completion/_run
+fpath=(~/.zsh/completion $fpath)
+autoload -Uz compinit && compinit
 
 # Fish
+mkdir -p ~/.config/fish/completions
 run completions fish > ~/.config/fish/completions/run.fish
 
-# PowerShell
+# PowerShell (add to $PROFILE)
+if (!(Test-Path -Path $PROFILE)) { New-Item -ItemType File -Path $PROFILE -Force }
 run completions powershell >> $PROFILE
 ```
 
@@ -223,6 +231,7 @@ When multiple lockfiles from the same ecosystem are detected:
 3. **No tools installed**: Shows installation instructions
 
 Example conflict message:
+
 ```
 ❌ Detected Node.js with multiple lockfiles (package-lock.json, yarn.lock).
 Both tools (npm, yarn) are installed.
@@ -231,13 +240,13 @@ Action needed: Remove the outdated lockfile or use --ignore=npm
 
 ## 📊 Exit Codes
 
-| Code | Meaning |
-|------|---------|
-| 0 | Success (or original command exit code) |
-| 1 | Generic error |
-| 2 | Runner not found |
-| 3 | Lockfile conflict |
-| 127 | Tool not installed |
+| Code | Meaning                                 |
+| ---- | --------------------------------------- |
+| 0    | Success (or original command exit code) |
+| 1    | Generic error                           |
+| 2    | Runner not found                        |
+| 3    | Lockfile conflict                       |
+| 127  | Tool not installed                      |
 
 ## 🛠️ Development
 
