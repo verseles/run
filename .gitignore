@@ -1,0 +1,20 @@
+# Build artifacts
+/target/
+debug/
+release/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test coverage
+*.profraw
+tarpaulin-report.html
+lcov.info
