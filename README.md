@@ -32,8 +32,14 @@
 
 ### Quick Install (Recommended)
 
+**Linux/macOS:**
 ```bash
 curl -fsSL https://raw.githubusercontent.com/verseles/run/main/install.sh | bash
+```
+
+**Windows (PowerShell):**
+```powershell
+irm https://raw.githubusercontent.com/verseles/run/main/install.ps1 | iex
 ```
 
 ### Cargo Install
