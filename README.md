@@ -305,4 +305,4 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ---
 
-Made with ❤️ by [Verseles](https://github.com/verseles)
+Made with 🤖 by [Verseles](https://github.com/verseles)
