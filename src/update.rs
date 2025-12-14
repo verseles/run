@@ -150,6 +150,7 @@ pub fn spawn_background_update() {
 
     #[cfg(windows)]
     {
+        use std::os::windows::process::CommandExt;
         use std::process::Command;
 
         let current_exe = match env::current_exe() {
@@ -157,9 +158,10 @@ pub fn spawn_background_update() {
             Err(_) => return,
         };
 
+        const DETACHED_PROCESS: u32 = 0x00000008;
         let _ = Command::new(&current_exe)
             .arg("--internal-update-check")
-            .creation_flags(0x00000008) // DETACHED_PROCESS
+            .creation_flags(DETACHED_PROCESS)
             .stdin(std::process::Stdio::null())
             .stdout(std::process::Stdio::null())
             .stderr(std::process::Stdio::null())
