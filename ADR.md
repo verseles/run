@@ -86,3 +86,16 @@
 - Fish: `~/.config/fish/completions/run.fish` (with mkdir if needed)
 - PowerShell: creates `$PROFILE` if it doesn't exist
 **Consequences**: Better user experience with tab completions.
+
+### ADR-009: Testing Strategy
+
+**Status**: ✅ Accepted
+**Context**: Choosing testing approach for a CLI tool with multiple ecosystems.
+**Decision**: 
+- **Unit tests** inline in each module (`#[cfg(test)] mod tests`)
+- **Integration tests** using `assert_cmd` + `predicates` for CLI behavior
+- **Property-based tests** using `proptest` for invariants (semver, path detection, case-insensitivity)
+- **Fixtures** in `tests/fixtures/` for each ecosystem (real lockfiles/manifests)
+- **tempfile** for isolated test environments
+- All tests run via `cargo test` and `make precommit`
+**Consequences**: Comprehensive coverage (145+ tests) with fast feedback. Property tests catch edge cases that example-based tests miss.
