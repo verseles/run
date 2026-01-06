@@ -99,3 +99,21 @@
 - **tempfile** for isolated test environments
 - All tests run via `cargo test` and `make precommit`
 **Consequences**: Comprehensive coverage (145+ tests) with fast feedback. Property tests catch edge cases that example-based tests miss.
+
+### ADR-010: Smart Command Validation with Fallback
+
+**Status**: ✅ Accepted
+**Context**: When multiple runners are detected (e.g., Cargo.toml + Makefile), the tool should intelligently select the runner that actually supports the requested command.
+**Decision**: 
+- Before selecting a runner, validate if it supports the requested command
+- For **npm/yarn/pnpm/bun**: Parse `package.json` and check if script exists
+- For **cargo**: Check against list of built-in subcommands (build, test, clippy, etc.)
+- For **make**: Parse Makefile and extract target names
+- For **composer**: Parse `composer.json` scripts section
+- For **gradle**: Check built-in tasks + parse `build.gradle` for custom tasks
+- For **dotnet**: Check against built-in commands
+- Commands return `Supported`, `NotSupported`, or `Unknown` status
+- Selection priority: `Supported` > `Unknown` > skip `NotSupported`
+- Fallback to first `Unknown` if none explicitly support the command
+**Example**: `run precommit` in a Rust project with Makefile correctly runs `make precommit` instead of failing with `cargo precommit`.
+**Consequences**: Smarter runner selection that matches user intent. Eliminates need for `--ignore` flag in common fallback scenarios.

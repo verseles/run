@@ -481,7 +481,8 @@ fn test_dry_run_zig() {
 #[test]
 fn test_dry_run_makefile() {
     let dir = tempdir().unwrap();
-    File::create(dir.path().join("Makefile")).unwrap();
+    let mut file = File::create(dir.path().join("Makefile")).unwrap();
+    writeln!(file, "build:\n\t@echo building").unwrap();
 
     run_cmd()
         .current_dir(dir.path())
@@ -494,7 +495,8 @@ fn test_dry_run_makefile() {
 #[test]
 fn test_dry_run_makefile_lowercase() {
     let dir = tempdir().unwrap();
-    File::create(dir.path().join("makefile")).unwrap();
+    let mut file = File::create(dir.path().join("makefile")).unwrap();
+    writeln!(file, "build:\n\t@echo building").unwrap();
 
     run_cmd()
         .current_dir(dir.path())
@@ -825,4 +827,68 @@ fn test_local_config_ignore() {
         .assert()
         .failure()
         .stderr(predicate::str::contains("No runner found"));
+}
+
+// ============================================================================
+// Command validation / fallback tests
+// ============================================================================
+
+#[test]
+fn test_fallback_cargo_to_make() {
+    let dir = tempdir().unwrap();
+    File::create(dir.path().join("Cargo.toml")).unwrap();
+    let mut makefile = File::create(dir.path().join("Makefile")).unwrap();
+    writeln!(makefile, "precommit:\n\t@echo precommit").unwrap();
+
+    run_cmd()
+        .current_dir(dir.path())
+        .args(["precommit", "--dry-run"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("make precommit"));
+}
+
+#[test]
+fn test_fallback_npm_to_make() {
+    let dir = tempdir().unwrap();
+    let mut pkg = File::create(dir.path().join("package.json")).unwrap();
+    writeln!(pkg, r#"{{"name": "test"}}"#).unwrap();
+    let mut makefile = File::create(dir.path().join("Makefile")).unwrap();
+    writeln!(makefile, "deploy:\n\t@echo deploying").unwrap();
+
+    run_cmd()
+        .current_dir(dir.path())
+        .args(["deploy", "--dry-run"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("make deploy"));
+}
+
+#[test]
+fn test_npm_script_takes_priority() {
+    let dir = tempdir().unwrap();
+    let mut pkg = File::create(dir.path().join("package.json")).unwrap();
+    writeln!(pkg, r#"{{"scripts": {{"build": "tsc"}}}}"#).unwrap();
+    let mut makefile = File::create(dir.path().join("Makefile")).unwrap();
+    writeln!(makefile, "build:\n\t@echo make build").unwrap();
+
+    run_cmd()
+        .current_dir(dir.path())
+        .args(["build", "--dry-run"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("npm run build"));
+}
+
+#[test]
+fn test_command_not_supported_error() {
+    let dir = tempdir().unwrap();
+    File::create(dir.path().join("Cargo.toml")).unwrap();
+
+    run_cmd()
+        .current_dir(dir.path())
+        .args(["nonexistent-command", "--dry-run"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("not supported"));
 }

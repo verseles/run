@@ -15,7 +15,7 @@ use run_cli::cli::{Cli, Commands};
 use run_cli::config::Config;
 use run_cli::error::exit_codes;
 use run_cli::output;
-use run_cli::runner::{check_conflicts, execute, search_runners};
+use run_cli::runner::{check_conflicts, execute, search_runners, select_runner};
 use run_cli::update;
 use std::env;
 use std::io;
@@ -108,9 +108,15 @@ fn main() {
         }
     };
 
-    // Check for conflicts and select runner
+    // Check for conflicts and select runner based on command support
     let runner = match check_conflicts(&runners, verbose) {
-        Ok(r) => r,
+        Ok(_) => match select_runner(&runners, &command, &working_dir, verbose) {
+            Ok(r) => r,
+            Err(e) => {
+                output::error(&e.to_string());
+                process::exit(e.exit_code());
+            }
+        },
         Err(e) => {
             output::error(&e.to_string());
             process::exit(e.exit_code());

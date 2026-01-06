@@ -123,6 +123,18 @@ Description: Comprehensive testing and code quality improvements
 - [x] 9.08 Set up code coverage reporting with cargo-tarpaulin - Commit: (pending)
 - [x] 9.09 Add property-based tests with proptest (16 tests) - Commit: (pending)
 
+### Feature 9.5: Smart Command Validation
+Description: Validate if runner supports the command before selecting it
+
+- [x] 9.5.01 Create validators module with CommandSupport enum - Commit: (pending)
+- [x] 9.5.02 Implement npm/yarn/pnpm/bun validation (parse package.json scripts) - Commit: (pending)
+- [x] 9.5.03 Implement cargo validation (built-in commands list) - Commit: (pending)
+- [x] 9.5.04 Implement make validation (parse Makefile targets) - Commit: (pending)
+- [x] 9.5.05 Implement composer/gradle/dotnet validation - Commit: (pending)
+- [x] 9.5.06 Add select_runner function with fallback logic - Commit: (pending)
+- [x] 9.5.07 Add integration tests for fallback behavior - Commit: (pending)
+- [x] 9.5.08 Document in ADR-010 - Commit: (pending)
+
 ### Feature 10: MVP Polish - Documentation & Demos
 Description: Visual demos and enhanced documentation
 

@@ -12,6 +12,7 @@
 use crate::detectors::{detect_all, is_tool_installed, DetectedRunner, Ecosystem};
 use crate::error::RunError;
 use crate::output;
+use crate::validators::CommandSupport;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitStatus, Stdio};
@@ -136,6 +137,55 @@ pub fn check_conflicts(
 
     // No conflicts - return highest priority runner
     Ok(runners[0].clone())
+}
+
+pub fn select_runner(
+    runners: &[DetectedRunner],
+    command: &str,
+    working_dir: &Path,
+    verbose: bool,
+) -> Result<DetectedRunner, RunError> {
+    if runners.is_empty() {
+        return Err(RunError::RunnerNotFound(0));
+    }
+
+    let mut supported_runners: Vec<&DetectedRunner> = Vec::new();
+    let mut unknown_runners: Vec<&DetectedRunner> = Vec::new();
+
+    for runner in runners {
+        match runner.supports_command(command, working_dir) {
+            CommandSupport::Supported => {
+                if verbose {
+                    output::info(&format!("{} supports command '{}'", runner.name, command));
+                }
+                supported_runners.push(runner);
+            }
+            CommandSupport::NotSupported => {
+                if verbose {
+                    output::info(&format!(
+                        "{} does not support command '{}'",
+                        runner.name, command
+                    ));
+                }
+            }
+            CommandSupport::Unknown => {
+                unknown_runners.push(runner);
+            }
+        }
+    }
+
+    if let Some(runner) = supported_runners.first() {
+        return Ok((*runner).clone());
+    }
+
+    if let Some(runner) = unknown_runners.first() {
+        return Ok((*runner).clone());
+    }
+
+    Err(RunError::CommandNotSupported(
+        command.to_string(),
+        runners.iter().map(|r| r.name.clone()).collect(),
+    ))
 }
 
 /// Execute a command with the detected runner

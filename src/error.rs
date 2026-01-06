@@ -31,6 +31,9 @@ pub enum RunError {
     #[error("Tool not installed: {0}")]
     ToolNotInstalled(String),
 
+    #[error("Command '{0}' not supported by any detected runner ({1:?})")]
+    CommandNotSupported(String, Vec<String>),
+
     #[error("Command execution failed: {0}")]
     CommandFailed(String),
 
