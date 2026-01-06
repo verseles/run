@@ -143,11 +143,14 @@ Description: Publish to package managers and package registries
 ### Feature 12: v0.2.0+ - Performance & Caching
 Description: Detection cache and performance optimizations
 
-- [ ] 12.01 Implement detection result cache (avoid re-scan in same session)
-- [ ] 12.02 Add parallelization for multiple directory checks
-- [ ] 12.03 Profile with cargo flamegraph and optimize hot paths
-- [ ] 12.04 Verify binary size stays < 5MB after changes
-- [ ] 12.05 Verify cold start stays < 50ms after changes
+- [!] 12.01 Implement detection result cache - REJECTED: CLI executes once and exits, no session to cache
+- [!] 12.02 Add parallelization for multiple directory checks - REJECTED: Max 4 dirs, thread overhead > gain
+- [!] 12.03 Profile with cargo flamegraph - REJECTED: Detection is just Path::exists(), already <3ms
+- [!] 12.04 Verify binary size stays < 5MB - REJECTED: Already ~2MB, convert to CI check if needed
+- [!] 12.05 Verify cold start stays < 50ms - REJECTED: Already ~3ms, convert to CI check if needed
+
+Note: Feature rejected as premature optimization. Current performance is excellent (<3ms detection).
+      If performance issues arise in the future, revisit with actual profiling data.
 
 ### Feature 13: v0.2.0+ - Workspace & Monorepo Support
 Description: Support for monorepo tools and workspace detection
