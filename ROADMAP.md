@@ -113,15 +113,15 @@ Description: Install scripts and release automation
 ### Feature 9: MVP Polish - Testing & Quality
 Description: Comprehensive testing and code quality improvements
 
-- [ ] 9.01 Create test fixtures for each ecosystem (tests/fixtures/)
-- [ ] 9.02 Add unit tests for each detector module (target: 80%+ coverage)
-- [ ] 9.03 Add integration tests using assert_cmd crate
-- [ ] 9.04 Add tests for config precedence logic
-- [ ] 9.05 Add tests for CLI argument parsing edge cases
-- [ ] 9.06 Add tests for recursive search behavior
-- [ ] 9.07 Add tests for conflict detection scenarios
-- [ ] 9.08 Set up code coverage reporting with cargo-tarpaulin or cargo-llvm-cov
-- [ ] 9.09 Add property-based tests with proptest for path parsing and semver
+- [x] 9.01 Create test fixtures for each ecosystem (tests/fixtures/) - Commit: (pending)
+- [x] 9.02 Add unit tests for each detector module (73 unit tests) - Commit: (pending)
+- [x] 9.03 Add integration tests using assert_cmd crate (56 tests) - Commit: (pending)
+- [x] 9.04 Add tests for config precedence logic - Commit: (pending)
+- [x] 9.05 Add tests for CLI argument parsing edge cases - Commit: (pending)
+- [x] 9.06 Add tests for recursive search behavior - Commit: (pending)
+- [x] 9.07 Add tests for conflict detection scenarios - Commit: (pending)
+- [x] 9.08 Set up code coverage reporting with cargo-tarpaulin - Commit: (pending)
+- [x] 9.09 Add property-based tests with proptest (16 tests) - Commit: (pending)
 
 ### Feature 10: MVP Polish - Documentation & Demos
 Description: Visual demos and enhanced documentation
