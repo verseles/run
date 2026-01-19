@@ -1,6 +1,6 @@
 [package]
 name = "run-cli"
-version = "0.4.0"
+version = "0.5.0"
 edition = "2021"
 authors = ["Verseles"]
 description = "Universal task runner for modern development - automatically detects and runs project commands"
