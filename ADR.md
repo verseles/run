@@ -120,11 +120,37 @@
 
 ### ADR-011: Trait-based Command Validation
 
-**Status**: 🏗️ Proposed
-**Context**: The command validation logic in `src/validators.rs` is currently centralized in a large match statement. This makes it hard to maintain and scale as more ecosystems are added or deeper manifest parsing is required.
+**Status**: ✅ Accepted
+**Context**: The command validation logic in `src/validators.rs` was centralized in a large match statement. This made it hard to maintain and scale as more ecosystems were added.
 **Decision**: 
 - Implement a `CommandValidator` trait in `src/detectors/mod.rs`.
-- Each detector (e.g., `NodeDetector`, `PythonDetector`) will implement this trait.
+- Each detector (e.g., `NodeDetector`, `PythonDetector`) implements this trait.
 - Move manifest-specific parsing logic (JSON, YAML, TOML) into the respective detectors.
-- The `validators.rs` module will be refactored to iterate through detected runners and call the trait methods polymorphically.
-**Consequences**: Better separation of concerns. Adding support for a new tool's command discovery only requires changing the relevant detector file. Facilitates Feature 19 (Advanced Command Discovery).
+- `DetectedRunner` holds an `Arc<dyn CommandValidator>` for polymorphic dispatch.
+- The old `validators.rs` module was deleted; logic now lives in detector modules.
+**Consequences**: Better separation of concerns. Adding support for a new tool's command discovery only requires changing the relevant detector file. Implemented in Feature 18.
+
+### ADR-012: Monorepo Orchestration Tools
+
+**Status**: ✅ Accepted
+**Context**: Projects using Nx, Turborepo, or Lerna should use these tools for task execution instead of falling back to raw npm/pnpm/yarn.
+**Decision**: 
+- Detect `nx.json`, `turbo.json`, `lerna.json` as first-class runners
+- Assign priority 0 (highest) - these tools orchestrate underlying package managers
+- Build commands: `nx <task>`, `turbo run <task>`, `lerna run <task>`
+- Use `UnknownValidator` (trust the tool) - these tools handle command validation internally
+**Example**: `run build` in a project with `turbo.json` executes `turbo run build` instead of `npm run build`.
+**Consequences**: Proper support for monorepo workflows. Users don't need to remember which orchestration tool their project uses.
+
+### ADR-013: Corepack Package Manager Resolution
+
+**Status**: ✅ Accepted
+**Context**: When multiple Node.js lockfiles exist (e.g., `yarn.lock` + `package-lock.json`), the tool needs a way to resolve the conflict automatically.
+**Decision**: 
+- Read `packageManager` field from `package.json` (Corepack standard)
+- Parse format: `"pnpm@9.0.0"` or `"yarn@4.0.0+sha256.abc123"`
+- Use this as the primary disambiguation source in `check_conflicts()`
+- If `packageManager` specifies a tool that matches a detected lockfile, use it
+- Falls back to existing resolution logic if no match or field is missing
+**Example**: Project with `yarn.lock`, `package-lock.json`, and `"packageManager": "pnpm@9.0.0"` - the conflict is not resolved by Corepack since none of the lockfiles match pnpm; falls back to installed tools check.
+**Consequences**: Respects project's declared package manager intent. Reduces friction in projects migrating between package managers.
