@@ -320,6 +320,38 @@ fn test_dry_run_go_run_path() {
 }
 
 // ============================================================================
+// Just command runner detection
+// ============================================================================
+
+#[test]
+fn test_dry_run_just() {
+    let dir = tempdir().unwrap();
+    let mut file = File::create(dir.path().join("justfile")).unwrap();
+    writeln!(file, "build:\n    cargo build").unwrap();
+
+    run_cmd()
+        .current_dir(dir.path())
+        .args(["build", "--dry-run"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("just build"));
+}
+
+#[test]
+fn test_dry_run_just_capitalized() {
+    let dir = tempdir().unwrap();
+    let mut file = File::create(dir.path().join("Justfile")).unwrap();
+    writeln!(file, "test:\n    cargo test").unwrap();
+
+    run_cmd()
+        .current_dir(dir.path())
+        .args(["test", "--dry-run"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("just test"));
+}
+
+// ============================================================================
 // Ruby ecosystem detection
 // ============================================================================
 

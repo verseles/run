@@ -13,6 +13,7 @@ pub mod dotnet;
 pub mod elixir;
 pub mod go;
 pub mod java;
+pub mod just;
 pub mod make;
 pub mod node;
 pub mod php;
@@ -187,6 +188,9 @@ impl DetectedRunner {
             // Zig ecosystem
             "zig" => vec!["zig".to_string(), "build".to_string(), task.to_string()],
 
+            // Just command runner
+            "just" => vec!["just".to_string(), task.to_string()],
+
             // Generic
             "make" => vec!["make".to_string(), task.to_string()],
 
@@ -256,6 +260,7 @@ pub fn detect_all(dir: &Path, ignore_list: &[String]) -> Vec<DetectedRunner> {
     add_runners(python::detect(dir)); // Python (5-8)
     add_runners(rust::detect(dir)); // Rust (9)
     add_runners(php::detect(dir)); // PHP (10)
+    add_runners(just::detect(dir)); // Just (10)
     add_runners(go::detect(dir)); // Go (11-12)
     add_runners(ruby::detect(dir)); // Ruby (13-14)
     add_runners(java::detect(dir)); // Java (15-16)

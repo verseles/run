@@ -58,8 +58,9 @@ Description: Implement detection logic for 20+ package managers and build tools 
 - [x] 3.11 Implement Swift detector: Package.swift - Commit: e562098
 - [x] 3.12 Implement Zig detector: build.zig - Commit: e562098
 - [x] 3.13 Implement Make detector: Makefile/makefile (case-insensitive) - Commit: b60383b
-- [x] 3.14 Implement recursive search up to N levels (default 3) - Commit: e562098
-- [x] 3.15 Implement lockfile conflict detection and resolution - Commit: e562098
+- [x] 3.14 Implement Just detector: justfile/Justfile/.justfile with recipe parsing
+- [x] 3.15 Implement recursive search up to N levels (default 3) - Commit: e562098
+- [x] 3.16 Implement lockfile conflict detection and resolution - Commit: e562098
 
 ### Feature 4: MVP Core - Execution Engine
 Description: Execute detected commands with proper I/O handling and signal forwarding

@@ -63,7 +63,7 @@ cd src/components && run test    # Finds package.json in parent dirs
 | **Elixir** | mix |
 | **Swift** | swift (SPM) |
 | **Zig** | zig |
-| **Generic** | make |
+| **Generic** | just → make |
 
 Detection is based on lockfiles first (more specific), then manifest files.
 
