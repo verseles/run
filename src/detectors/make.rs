@@ -125,4 +125,32 @@ mod tests {
         let runners = detect(dir.path());
         assert!(runners.is_empty());
     }
+
+    #[test]
+    fn test_detected_runner_has_working_validator() {
+        use super::CommandSupport;
+        use std::io::Write;
+
+        let dir = tempdir().unwrap();
+        let mut file = File::create(dir.path().join("Makefile")).unwrap();
+        writeln!(file, "build:\n\techo building\n\ntest:\n\techo testing").unwrap();
+
+        let runners = detect(dir.path());
+        assert_eq!(runners.len(), 1);
+        assert_eq!(runners[0].name, "make");
+
+        // Verify the detected runner has a working validator (not UnknownValidator)
+        assert_eq!(
+            runners[0].supports_command("build", dir.path()),
+            CommandSupport::Supported
+        );
+        assert_eq!(
+            runners[0].supports_command("test", dir.path()),
+            CommandSupport::Supported
+        );
+        assert_eq!(
+            runners[0].supports_command("nonexistent", dir.path()),
+            CommandSupport::NotSupported
+        );
+    }
 }

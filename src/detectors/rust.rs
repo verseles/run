@@ -136,4 +136,30 @@ mod tests {
         let runners = detect(dir.path());
         assert!(runners.is_empty());
     }
+
+    #[test]
+    fn test_detected_runner_has_working_validator() {
+        use super::CommandSupport;
+
+        let dir = tempdir().unwrap();
+        File::create(dir.path().join("Cargo.toml")).unwrap();
+
+        let runners = detect(dir.path());
+        assert_eq!(runners.len(), 1);
+        assert_eq!(runners[0].name, "cargo");
+
+        // Verify the detected runner has a working validator (not UnknownValidator)
+        assert_eq!(
+            runners[0].supports_command("build", dir.path()),
+            CommandSupport::Supported
+        );
+        assert_eq!(
+            runners[0].supports_command("test", dir.path()),
+            CommandSupport::Supported
+        );
+        assert_eq!(
+            runners[0].supports_command("invalid_command", dir.path()),
+            CommandSupport::NotSupported
+        );
+    }
 }
