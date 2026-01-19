@@ -146,9 +146,8 @@ fn main() {
     }
 
     // Spawn background update check (after command completes)
-    if config.get_auto_update() && !update::is_update_disabled() {
-        update::spawn_background_update();
-    }
+    // The function checks config internally and respects the throttle interval
+    update::spawn_background_update(&config);
 
     // Exit with the same code as the executed command
     let exit_code = result

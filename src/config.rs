@@ -13,13 +13,47 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
 
+/// Default interval between update checks in hours
+const DEFAULT_CHECK_INTERVAL_HOURS: u64 = 2;
+
+/// Configuration for the auto-update system
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(default)]
+pub struct UpdateConfig {
+    /// Enable auto-update (default: true)
+    pub enabled: Option<bool>,
+    /// Hours between update checks (default: 2)
+    pub check_interval_hours: Option<u64>,
+}
+
+impl UpdateConfig {
+    /// Get whether updates are enabled (default: true)
+    pub fn get_enabled(&self) -> bool {
+        self.enabled.unwrap_or(true)
+    }
+
+    /// Get the check interval in hours (default: 2)
+    pub fn get_check_interval_hours(&self) -> u64 {
+        self.check_interval_hours
+            .unwrap_or(DEFAULT_CHECK_INTERVAL_HOURS)
+    }
+
+    /// Merge two UpdateConfig, with other taking precedence
+    pub fn merge(self, other: UpdateConfig) -> Self {
+        UpdateConfig {
+            enabled: other.enabled.or(self.enabled),
+            check_interval_hours: other.check_interval_hours.or(self.check_interval_hours),
+        }
+    }
+}
+
 /// Configuration structure for the run CLI
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(default)]
 pub struct Config {
     /// Maximum levels to search above current directory
     pub max_levels: Option<u8>,
-    /// Enable auto-update
+    /// Enable auto-update (legacy, use [update] section instead)
     pub auto_update: Option<bool>,
     /// Tools to ignore during detection
     pub ignore_tools: Vec<String>,
@@ -27,6 +61,8 @@ pub struct Config {
     pub verbose: Option<bool>,
     /// Enable quiet mode
     pub quiet: Option<bool>,
+    /// Update configuration section
+    pub update: Option<UpdateConfig>,
 }
 
 impl Config {
@@ -63,6 +99,11 @@ impl Config {
         dirs::config_dir().map(|p| p.join("run").join("update.json"))
     }
 
+    /// Get the path to the last update check timestamp file
+    pub fn last_update_check_path() -> Option<PathBuf> {
+        dirs::config_dir().map(|p| p.join("run").join("last_update_check"))
+    }
+
     /// Load configuration from a specific file
     pub fn load_from_file(path: &Path) -> Result<Self, Box<dyn std::error::Error>> {
         let content = fs::read_to_string(path)?;
@@ -82,6 +123,12 @@ impl Config {
             },
             verbose: other.verbose.or(self.verbose),
             quiet: other.quiet.or(self.quiet),
+            update: match (self.update, other.update) {
+                (Some(base), Some(over)) => Some(base.merge(over)),
+                (None, Some(over)) => Some(over),
+                (Some(base), None) => Some(base),
+                (None, None) => None,
+            },
         }
     }
 
@@ -91,8 +138,18 @@ impl Config {
     }
 
     /// Get auto update setting with default fallback
+    /// This checks both the legacy `auto_update` field and the new `[update]` section
     pub fn get_auto_update(&self) -> bool {
+        // New [update] section takes precedence over legacy field
+        if let Some(ref update) = self.update {
+            return update.get_enabled();
+        }
         self.auto_update.unwrap_or(true)
+    }
+
+    /// Get the update configuration, creating a default if not set
+    pub fn get_update_config(&self) -> UpdateConfig {
+        self.update.clone().unwrap_or_default()
     }
 
     /// Get verbose setting with default fallback
@@ -142,6 +199,7 @@ mod tests {
             ignore_tools: vec!["npm".to_string()],
             verbose: None,
             quiet: None,
+            update: None,
         };
 
         let override_config = Config {
@@ -150,6 +208,7 @@ mod tests {
             ignore_tools: vec!["yarn".to_string()],
             verbose: Some(true),
             quiet: None,
+            update: None,
         };
 
         let merged = base.merge(override_config);
@@ -190,5 +249,80 @@ verbose = true
 
         let result = Config::load_from_file(&config_path);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_update_config_defaults() {
+        let update_config = UpdateConfig::default();
+        assert!(update_config.get_enabled());
+        assert_eq!(update_config.get_check_interval_hours(), 2);
+    }
+
+    #[test]
+    fn test_update_config_custom_values() {
+        let update_config = UpdateConfig {
+            enabled: Some(false),
+            check_interval_hours: Some(24),
+        };
+        assert!(!update_config.get_enabled());
+        assert_eq!(update_config.get_check_interval_hours(), 24);
+    }
+
+    #[test]
+    fn test_update_config_merge() {
+        let base = UpdateConfig {
+            enabled: Some(true),
+            check_interval_hours: Some(2),
+        };
+        let over = UpdateConfig {
+            enabled: None,
+            check_interval_hours: Some(4),
+        };
+        let merged = base.merge(over);
+        assert!(merged.get_enabled());
+        assert_eq!(merged.get_check_interval_hours(), 4);
+    }
+
+    #[test]
+    fn test_load_config_with_update_section() {
+        let dir = tempdir().unwrap();
+        let config_path = dir.path().join("config.toml");
+
+        fs::write(
+            &config_path,
+            r#"
+max_levels = 3
+
+[update]
+enabled = true
+check_interval_hours = 4
+"#,
+        )
+        .unwrap();
+
+        let config = Config::load_from_file(&config_path).unwrap();
+        assert!(config.get_auto_update());
+        assert_eq!(config.get_update_config().get_check_interval_hours(), 4);
+    }
+
+    #[test]
+    fn test_update_section_overrides_legacy_auto_update() {
+        let dir = tempdir().unwrap();
+        let config_path = dir.path().join("config.toml");
+
+        fs::write(
+            &config_path,
+            r#"
+auto_update = true
+
+[update]
+enabled = false
+"#,
+        )
+        .unwrap();
+
+        let config = Config::load_from_file(&config_path).unwrap();
+        // [update].enabled should override legacy auto_update
+        assert!(!config.get_auto_update());
     }
 }

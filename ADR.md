@@ -154,3 +154,20 @@
 - Falls back to existing resolution logic if no match or field is missing
 **Example**: Project with `yarn.lock`, `package-lock.json`, and `"packageManager": "pnpm@9.0.0"` - the conflict is not resolved by Corepack since none of the lockfiles match pnpm; falls back to installed tools check.
 **Consequences**: Respects project's declared package manager intent. Reduces friction in projects migrating between package managers.
+
+### ADR-014: Smart Update System with Throttling
+
+**Status**: Accepted
+**Context**: The original auto-update system checked for updates on every CLI execution, which was too aggressive and could cause unnecessary network requests.
+**Decision**: 
+- Implement a throttled update system with configurable interval (default: 2 hours)
+- Store last check timestamp in `~/.config/run/last_update_check`
+- Use **hickory-resolver** with Cloudflare DNS (1.1.1.1) for Termux compatibility
+- Add `[update]` section to config.toml for fine-grained control:
+  ```toml
+  [update]
+  enabled = true              # Enable auto-update
+  check_interval_hours = 2    # Hours between update checks
+  ```
+- The legacy `auto_update = false` still works but `[update].enabled` takes precedence
+**Consequences**: Reduced network overhead, better UX for frequent CLI users, and improved compatibility with restricted environments like Termux.

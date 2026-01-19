@@ -87,6 +87,11 @@ Create `~/.config/run/config.toml` for global settings:
 max_levels = 5
 auto_update = true
 ignore_tools = ["npm"]
+
+# Advanced update settings (optional)
+[update]
+enabled = true              # Enable auto-update (default: true)
+check_interval_hours = 2    # Hours between update checks (default: 2)
 ```
 
 Or `run.toml` in your project for local overrides.
@@ -114,7 +119,12 @@ When multiple lockfiles exist (e.g., `package-lock.json` + `yarn.lock`):
 
 ## Auto-Update
 
-Updates happen silently in the background after commands complete. Disable with `RUN_NO_UPDATE=1` or `auto_update = false`.
+Updates happen silently in the background after commands complete (every 2 hours by default). 
+
+Disable with:
+- Environment variable: `RUN_NO_UPDATE=1`
+- Legacy config: `auto_update = false`
+- New config section: `[update] enabled = false`
 
 ## Shell Completions
 

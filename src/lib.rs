@@ -20,6 +20,7 @@ pub mod cli;
 pub mod config;
 pub mod detectors;
 pub mod error;
+pub mod http;
 pub mod output;
 pub mod runner;
 pub mod update;

@@ -10,6 +10,7 @@
 // GNU Affero General Public License for more details.
 
 use crate::config::Config;
+use crate::http;
 use crate::output;
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
@@ -50,6 +51,39 @@ pub fn is_update_disabled() -> bool {
 /// Get the current version of the CLI
 pub fn current_version() -> &'static str {
     env!("CARGO_PKG_VERSION")
+}
+
+/// Read the last update check timestamp from disk
+pub fn read_last_check_timestamp() -> Option<DateTime<Utc>> {
+    let path = Config::last_update_check_path()?;
+    let content = fs::read_to_string(&path).ok()?;
+    DateTime::parse_from_rfc3339(content.trim())
+        .ok()
+        .map(|dt| dt.with_timezone(&Utc))
+}
+
+/// Write the current timestamp as the last update check time
+pub fn write_last_check_timestamp() {
+    if let Some(path) = Config::last_update_check_path() {
+        let _ = Config::ensure_config_dir();
+        let _ = fs::write(&path, Utc::now().to_rfc3339());
+    }
+}
+
+/// Determine if we should check for updates based on the interval
+///
+/// Returns true if:
+/// - No previous check timestamp exists
+/// - The last check was more than `interval_hours` ago
+pub fn should_check_update(interval_hours: u64) -> bool {
+    let last_check = match read_last_check_timestamp() {
+        Some(ts) => ts,
+        None => return true, // Never checked before
+    };
+
+    let now = Utc::now();
+    let interval = Duration::hours(interval_hours as i64);
+    now - last_check > interval
 }
 
 /// Check for and display any pending update notifications
@@ -121,8 +155,23 @@ fn get_asset_name() -> Option<String> {
 }
 
 /// Spawn background update check
-pub fn spawn_background_update() {
+///
+/// This respects the update interval configured in the config.
+/// If the last check was within the interval, no check is spawned.
+pub fn spawn_background_update(config: &Config) {
     if is_update_disabled() {
+        return;
+    }
+
+    if !config.get_auto_update() {
+        return;
+    }
+
+    // Check if we should run based on the interval
+    let update_config = config.get_update_config();
+    let interval_hours = update_config.get_check_interval_hours();
+
+    if !should_check_update(interval_hours) {
         return;
     }
 
@@ -171,7 +220,10 @@ pub fn spawn_background_update() {
 
 /// Perform the actual update check (called from background process)
 pub async fn perform_update_check() -> Result<(), Box<dyn std::error::Error>> {
-    let client = reqwest::Client::builder()
+    // Write the timestamp immediately to prevent multiple concurrent checks
+    write_last_check_timestamp();
+
+    let client = http::create_client_builder()
         .timeout(std::time::Duration::from_secs(UPDATE_TIMEOUT_SECS))
         .build()?;
 
@@ -267,7 +319,7 @@ pub async fn perform_blocking_update(quiet: bool) -> Result<bool, Box<dyn std::e
         output::info("Checking for updates...");
     }
 
-    let client = reqwest::Client::builder()
+    let client = http::create_client_builder()
         .timeout(std::time::Duration::from_secs(30))
         .build()?;
 
@@ -377,5 +429,15 @@ mod tests {
             all(target_os = "windows", target_arch = "x86_64")
         ))]
         assert!(asset.is_some());
+    }
+
+    #[test]
+    fn test_should_check_update_no_previous_check() {
+        // When there's no timestamp file, should return true
+        // This is implicitly tested since read_last_check_timestamp returns None
+        // in test environments where the config dir may not exist
+        let result = should_check_update(2);
+        // Should be true since there's no previous check
+        assert!(result);
     }
 }

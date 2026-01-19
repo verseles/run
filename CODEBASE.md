@@ -21,7 +21,8 @@ run/
 │   ├── cli.rs            # Clap-based CLI argument parsing
 │   ├── config.rs         # TOML configuration loading (global + local)
 │   ├── runner.rs         # Command search, conflict resolution, execution
-│   ├── update.rs         # GitHub Releases auto-update system
+│   ├── update.rs         # GitHub Releases auto-update system (throttled)
+│   ├── http.rs           # Custom HTTP client with Cloudflare DNS (Termux compat)
 │   ├── output.rs         # Colored terminal output (owo-colors)
 │   ├── error.rs          # Error types and exit codes
 │   └── detectors/        # Package manager detection modules
@@ -141,23 +142,37 @@ pub struct DetectedRunner {
 
 ### `update.rs` - Auto-Update System
 
-Uses **reqwest** + **tokio** for async HTTP, **semver** for version comparison.
+Uses **hickory-resolver** for DNS (Cloudflare 1.1.1.1) + **reqwest** + **tokio** for async HTTP, **semver** for version comparison.
 
 | Function | Purpose |
 |----------|---------|
-| `spawn_background_update()` | Detached process for post-command update check |
+| `spawn_background_update(&config)` | Detached process for post-command update check (respects throttle) |
+| `should_check_update(interval_hours)` | Check if enough time has passed since last check |
+| `read_last_check_timestamp()` | Read timestamp from `~/.config/run/last_update_check` |
+| `write_last_check_timestamp()` | Write current time as last check |
 | `perform_update_check()` | Async: fetch GitHub release, compare versions, download, atomic replace |
 | `perform_blocking_update(quiet)` | Synchronous update (--update flag) |
 | `check_update_notification(quiet)` | Display pending update notification |
 
 **Update flow:**
-1. POST command → spawn detached child process
-2. Fetch `https://api.github.com/repos/verseles/run/releases/latest`
-3. Compare remote vs local semver
-4. Download platform-specific binary
-5. Atomic replace (Unix: rename, Windows: backup→rename→delete)
-6. Save `~/.config/run/update.json` with changelog
-7. Next run shows notification, deletes JSON
+1. Check if interval has passed (default: 2 hours)
+2. POST command → spawn detached child process
+3. Write timestamp immediately to prevent concurrent checks
+4. Fetch `https://api.github.com/repos/verseles/run/releases/latest`
+5. Compare remote vs local semver
+6. Download platform-specific binary
+7. Atomic replace (Unix: rename, Windows: backup→rename→delete)
+8. Save `~/.config/run/update.json` with changelog
+9. Next run shows notification, deletes JSON
+
+### `http.rs` - Custom HTTP Client
+
+Uses **hickory-resolver** with Cloudflare DNS (1.1.1.1) for Termux compatibility.
+
+| Function | Purpose |
+|----------|---------|
+| `HickoryDnsResolver::new()` | Create resolver using Cloudflare 1.1.1.1 |
+| `create_client_builder()` | Create reqwest ClientBuilder with custom DNS |
 
 ### `error.rs` - Error Handling
 
@@ -265,6 +280,7 @@ User: run test --verbose
 | `clap_complete` | Shell completions generation |
 | `tokio` | Async runtime for HTTP |
 | `reqwest` | HTTP client (rustls-tls) |
+| `hickory-resolver` | Custom DNS resolver (Cloudflare 1.1.1.1) |
 | `serde` + `serde_json` + `toml` | Serialization |
 | `semver` | Version comparison |
 | `owo-colors` | Terminal colors |
