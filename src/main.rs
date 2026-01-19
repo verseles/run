@@ -109,7 +109,7 @@ fn main() {
     };
 
     // Check for conflicts and select runner based on command support
-    let runner = match check_conflicts(&runners, verbose) {
+    let runner = match check_conflicts(&runners, &working_dir, verbose) {
         Ok(_) => match select_runner(&runners, &command, &working_dir, verbose) {
             Ok(r) => r,
             Err(e) => {

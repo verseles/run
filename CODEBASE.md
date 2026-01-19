@@ -26,10 +26,12 @@ run/
 │   ├── error.rs          # Error types and exit codes
 │   └── detectors/        # Package manager detection modules
 │       ├── mod.rs        # DetectedRunner struct, Ecosystem enum, detect_all()
-│       ├── node.rs       # Bun, PNPM, Yarn, NPM (priority 1-4)
+│       ├── monorepo.rs   # Nx, Turborepo, Lerna (priority 0)
+│       ├── node.rs       # Bun, PNPM, Yarn, NPM (priority 1-4) + Corepack
 │       ├── python.rs     # UV, Poetry, Pipenv, Pip (priority 5-8)
 │       ├── rust.rs       # Cargo (priority 9)
 │       ├── php.rs        # Composer (priority 10)
+│       ├── just.rs       # Just (priority 10)
 │       ├── go.rs         # Task, Go Modules (priority 11-12)
 │       ├── ruby.rs       # Bundler, Rake (priority 13-14)
 │       ├── java.rs       # Gradle, Maven (priority 15-16)
@@ -229,6 +231,9 @@ User: run test --verbose
 
 | Priority | Ecosystem | Runner | Detection File |
 |----------|-----------|--------|----------------|
+| 0 | Node.js | nx | `nx.json` |
+| 0 | Node.js | turbo | `turbo.json` |
+| 0 | Node.js | lerna | `lerna.json` |
 | 1 | Node.js | bun | `bun.lockb` or `bun.lock` |
 | 2 | Node.js | pnpm | `pnpm-lock.yaml` |
 | 3 | Node.js | yarn | `yarn.lock` |
@@ -239,6 +244,7 @@ User: run test --verbose
 | 8 | Python | pip | `requirements.txt` or `pyproject.toml` |
 | 9 | Rust | cargo | `Cargo.toml` |
 | 10 | PHP | composer | `composer.lock` |
+| 10 | Generic | just | `justfile` or `Justfile` |
 | 11 | Go | task | `Taskfile.yml` or `Taskfile.yaml` |
 | 12 | Go | go | `go.mod` |
 | 13 | Ruby | bundler | `Gemfile.lock` |

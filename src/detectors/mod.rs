@@ -15,6 +15,7 @@ pub mod go;
 pub mod java;
 pub mod just;
 pub mod make;
+pub mod monorepo;
 pub mod node;
 pub mod php;
 pub mod python;
@@ -191,6 +192,11 @@ impl DetectedRunner {
             // Just command runner
             "just" => vec!["just".to_string(), task.to_string()],
 
+            // Monorepo orchestration tools
+            "nx" => vec!["nx".to_string(), task.to_string()],
+            "turbo" => vec!["turbo".to_string(), "run".to_string(), task.to_string()],
+            "lerna" => vec!["lerna".to_string(), "run".to_string(), task.to_string()],
+
             // Generic
             "make" => vec!["make".to_string(), task.to_string()],
 
@@ -256,6 +262,7 @@ pub fn detect_all(dir: &Path, ignore_list: &[String]) -> Vec<DetectedRunner> {
     };
 
     // Run all detectors in priority order
+    add_runners(monorepo::detect(dir)); // Monorepo tools (0) - highest priority
     add_runners(node::detect(dir)); // Node.js (1-4)
     add_runners(python::detect(dir)); // Python (5-8)
     add_runners(rust::detect(dir)); // Rust (9)

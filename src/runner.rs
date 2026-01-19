@@ -9,7 +9,9 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU Affero General Public License for more details.
 
-use crate::detectors::{detect_all, is_tool_installed, CommandSupport, DetectedRunner, Ecosystem};
+use crate::detectors::{
+    detect_all, is_tool_installed, node, CommandSupport, DetectedRunner, Ecosystem,
+};
 use crate::output;
 use crate::RunError;
 use std::collections::HashMap;
@@ -54,8 +56,10 @@ pub fn search_runners(
 }
 
 /// Check for lockfile conflicts within the same ecosystem
+/// Uses Corepack (packageManager field) to resolve Node.js conflicts if available
 pub fn check_conflicts(
     runners: &[DetectedRunner],
+    working_dir: &Path,
     verbose: bool,
 ) -> Result<DetectedRunner, RunError> {
     if runners.is_empty() {
@@ -78,6 +82,30 @@ pub fn check_conflicts(
     // Check for conflicts within ecosystems
     for (ecosystem, eco_runners) in &by_ecosystem {
         if eco_runners.len() > 1 {
+            // For Node.js ecosystem, try to use Corepack to resolve
+            if *ecosystem == Ecosystem::NodeJs {
+                if let Some(corepack_pm) = node::get_corepack_manager(working_dir) {
+                    // Find the runner that matches the Corepack package manager
+                    if let Some(runner) = eco_runners.iter().find(|r| r.name == corepack_pm) {
+                        if verbose {
+                            output::info(&format!(
+                                "Using {} (specified by packageManager in package.json)",
+                                corepack_pm
+                            ));
+                        }
+                        return Ok((*runner).clone());
+                    } else {
+                        // Corepack specifies a PM but we don't have a matching lockfile
+                        if verbose {
+                            output::warning(&format!(
+                                "packageManager specifies '{}' but no matching lockfile found",
+                                corepack_pm
+                            ));
+                        }
+                    }
+                }
+            }
+
             // Check which tools are installed
             let installed: Vec<&&DetectedRunner> = eco_runners
                 .iter()
@@ -298,24 +326,46 @@ mod tests {
 
     #[test]
     fn test_check_conflicts_single_runner() {
+        let dir = tempdir().unwrap();
         let runners = vec![DetectedRunner::new(
             "npm",
             "package.json",
             Ecosystem::NodeJs,
             4,
         )];
-        let result = check_conflicts(&runners, false).unwrap();
+        let result = check_conflicts(&runners, dir.path(), false).unwrap();
         assert_eq!(result.name, "npm");
     }
 
     #[test]
     fn test_check_conflicts_different_ecosystems() {
+        let dir = tempdir().unwrap();
         let runners = vec![
             DetectedRunner::new("npm", "package.json", Ecosystem::NodeJs, 4),
             DetectedRunner::new("cargo", "Cargo.toml", Ecosystem::Rust, 9),
         ];
-        let result = check_conflicts(&runners, false).unwrap();
+        let result = check_conflicts(&runners, dir.path(), false).unwrap();
         // Should return highest priority
         assert_eq!(result.name, "npm");
+    }
+
+    #[test]
+    fn test_check_conflicts_corepack_resolves() {
+        use std::io::Write;
+
+        let dir = tempdir().unwrap();
+        // Create package.json with packageManager specifying pnpm
+        let mut file = File::create(dir.path().join("package.json")).unwrap();
+        writeln!(file, r#"{{"packageManager": "pnpm@9.0.0"}}"#).unwrap();
+
+        let runners = vec![
+            DetectedRunner::new("yarn", "yarn.lock", Ecosystem::NodeJs, 3),
+            DetectedRunner::new("pnpm", "pnpm-lock.yaml", Ecosystem::NodeJs, 2),
+            DetectedRunner::new("npm", "package-lock.json", Ecosystem::NodeJs, 4),
+        ];
+
+        // Corepack should resolve to pnpm
+        let result = check_conflicts(&runners, dir.path(), false).unwrap();
+        assert_eq!(result.name, "pnpm");
     }
 }

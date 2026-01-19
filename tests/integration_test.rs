@@ -352,6 +352,68 @@ fn test_dry_run_just_capitalized() {
 }
 
 // ============================================================================
+// Monorepo orchestration tools detection
+// ============================================================================
+
+#[test]
+fn test_dry_run_nx() {
+    let dir = tempdir().unwrap();
+    File::create(dir.path().join("nx.json")).unwrap();
+    File::create(dir.path().join("package.json")).unwrap();
+
+    run_cmd()
+        .current_dir(dir.path())
+        .args(["build", "--dry-run"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("nx build"));
+}
+
+#[test]
+fn test_dry_run_turbo() {
+    let dir = tempdir().unwrap();
+    File::create(dir.path().join("turbo.json")).unwrap();
+    File::create(dir.path().join("package.json")).unwrap();
+
+    run_cmd()
+        .current_dir(dir.path())
+        .args(["build", "--dry-run"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("turbo run build"));
+}
+
+#[test]
+fn test_dry_run_lerna() {
+    let dir = tempdir().unwrap();
+    File::create(dir.path().join("lerna.json")).unwrap();
+    File::create(dir.path().join("package.json")).unwrap();
+
+    run_cmd()
+        .current_dir(dir.path())
+        .args(["test", "--dry-run"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("lerna run test"));
+}
+
+#[test]
+fn test_monorepo_priority_over_npm() {
+    let dir = tempdir().unwrap();
+    File::create(dir.path().join("turbo.json")).unwrap();
+    File::create(dir.path().join("package.json")).unwrap();
+    File::create(dir.path().join("package-lock.json")).unwrap();
+
+    // turbo (priority 0) should be preferred over npm (priority 4)
+    run_cmd()
+        .current_dir(dir.path())
+        .args(["build", "--dry-run"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("turbo run build"));
+}
+
+// ============================================================================
 // Ruby ecosystem detection
 // ============================================================================
 

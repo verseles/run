@@ -168,12 +168,12 @@ Note: Feature rejected as premature optimization. Current performance is excelle
 ### Feature 13: v0.2.0+ - Workspace & Monorepo Support
 Description: Support for monorepo tools and workspace detection
 
-- [ ] 13.01 Detect Nx workspace (nx.json)
-- [ ] 13.02 Detect Turborepo workspace (turbo.json)
-- [ ] 13.03 Detect Lerna workspace (lerna.json)
-- [ ] 13.04 Detect pnpm workspace (pnpm-workspace.yaml)
-- [ ] 13.05 Detect npm/yarn workspaces (package.json workspaces field)
-- [ ] 13.06 Support Corepack detection via packageManager field
+- [x] 13.01 Detect Nx workspace (nx.json) - Creates "nx" runner with priority 0
+- [x] 13.02 Detect Turborepo workspace (turbo.json) - Creates "turbo" runner with priority 0
+- [x] 13.03 Detect Lerna workspace (lerna.json) - Creates "lerna" runner with priority 0
+- [x] 13.04 Build commands: nx <task>, turbo run <task>, lerna run <task>
+- [!] 13.05 Detect pnpm workspace (pnpm-workspace.yaml) - SKIPPED: pnpm already detected via lockfile
+- [x] 13.06 Support Corepack detection via packageManager field - Resolves lockfile conflicts
 
 ### Feature 14: v0.3.0+ - Telemetry & Analytics
 Description: Optional anonymous usage statistics

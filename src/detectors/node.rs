@@ -44,6 +44,27 @@ impl CommandValidator for NodeValidator {
     }
 }
 
+/// Get the package manager specified by Corepack in package.json
+/// Returns the package manager name (e.g., "pnpm", "yarn", "npm") if found
+/// Format: "packageManager": "pnpm@9.0.0" or "packageManager": "yarn@4.0.0+sha256.abc123"
+pub fn get_corepack_manager(dir: &Path) -> Option<String> {
+    let package_json = dir.join("package.json");
+    let content = fs::read_to_string(&package_json).ok()?;
+    let json: serde_json::Value = serde_json::from_str(&content).ok()?;
+
+    let package_manager = json.get("packageManager")?.as_str()?;
+
+    // Parse format: "pnpm@9.0.0" or "yarn@4.0.0+sha256.abc123"
+    // Extract just the package manager name (before @)
+    let name = package_manager.split('@').next()?;
+
+    if name.is_empty() {
+        return None;
+    }
+
+    Some(name.to_string())
+}
+
 /// Detect Node.js package managers
 /// Priority: Bun (1) > PNPM (2) > Yarn (3) > NPM (4)
 pub fn detect(dir: &Path) -> Vec<DetectedRunner> {
@@ -246,5 +267,65 @@ mod tests {
             runners[0].supports_command("nonexistent", dir.path()),
             CommandSupport::NotSupported
         );
+    }
+
+    #[test]
+    fn test_corepack_pnpm() {
+        use std::io::Write;
+
+        let dir = tempdir().unwrap();
+        let mut file = File::create(dir.path().join("package.json")).unwrap();
+        writeln!(file, r#"{{"packageManager": "pnpm@9.0.0"}}"#).unwrap();
+
+        let result = get_corepack_manager(dir.path());
+        assert_eq!(result, Some("pnpm".to_string()));
+    }
+
+    #[test]
+    fn test_corepack_yarn_with_hash() {
+        use std::io::Write;
+
+        let dir = tempdir().unwrap();
+        let mut file = File::create(dir.path().join("package.json")).unwrap();
+        writeln!(
+            file,
+            r#"{{"packageManager": "yarn@4.0.0+sha256.abc123def456"}}"#
+        )
+        .unwrap();
+
+        let result = get_corepack_manager(dir.path());
+        assert_eq!(result, Some("yarn".to_string()));
+    }
+
+    #[test]
+    fn test_corepack_npm() {
+        use std::io::Write;
+
+        let dir = tempdir().unwrap();
+        let mut file = File::create(dir.path().join("package.json")).unwrap();
+        writeln!(file, r#"{{"packageManager": "npm@10.2.0"}}"#).unwrap();
+
+        let result = get_corepack_manager(dir.path());
+        assert_eq!(result, Some("npm".to_string()));
+    }
+
+    #[test]
+    fn test_corepack_missing() {
+        use std::io::Write;
+
+        let dir = tempdir().unwrap();
+        let mut file = File::create(dir.path().join("package.json")).unwrap();
+        writeln!(file, r#"{{"scripts": {{"test": "jest"}}}}"#).unwrap();
+
+        let result = get_corepack_manager(dir.path());
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_corepack_no_package_json() {
+        let dir = tempdir().unwrap();
+
+        let result = get_corepack_manager(dir.path());
+        assert_eq!(result, None);
     }
 }

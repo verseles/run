@@ -52,6 +52,7 @@ cd src/components && run test    # Finds package.json in parent dirs
 
 | Ecosystem | Tools (priority order) |
 |-----------|----------------------|
+| **Monorepo** | nx → turbo → lerna |
 | **Node.js** | bun → pnpm → yarn → npm |
 | **Python** | uv → poetry → pipenv → pip |
 | **Rust** | cargo |
@@ -96,9 +97,10 @@ Or `run.toml` in your project for local overrides.
 
 When multiple lockfiles exist (e.g., `package-lock.json` + `yarn.lock`):
 
-1. If only one tool is installed → uses it with a warning
-2. If multiple tools installed → error with suggested action
-3. If no tools installed → shows installation instructions
+1. **Corepack** — If `package.json` has a `packageManager` field, uses that tool
+2. If only one tool is installed → uses it with a warning
+3. If multiple tools installed → error with suggested action
+4. If no tools installed → shows installation instructions
 
 ## Exit Codes
 
