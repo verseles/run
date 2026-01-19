@@ -12,6 +12,7 @@
 use super::{CommandSupport, CommandValidator, DetectedRunner, Ecosystem};
 use std::fs;
 use std::path::Path;
+use std::sync::Arc;
 
 pub struct JavaValidator;
 
@@ -79,30 +80,40 @@ impl CommandValidator for JavaValidator {
 /// Priority: Gradle (15) > Maven (16)
 pub fn detect(dir: &Path) -> Vec<DetectedRunner> {
     let mut runners = Vec::new();
+    let validator: Arc<dyn CommandValidator> = Arc::new(JavaValidator);
 
     // Check for Gradle (priority 15)
     let build_gradle = dir.join("build.gradle");
     let build_gradle_kts = dir.join("build.gradle.kts");
     if build_gradle.exists() {
-        runners.push(DetectedRunner::new(
+        runners.push(DetectedRunner::with_validator(
             "gradle",
             "build.gradle",
             Ecosystem::Java,
             15,
+            Arc::clone(&validator),
         ));
     } else if build_gradle_kts.exists() {
-        runners.push(DetectedRunner::new(
+        runners.push(DetectedRunner::with_validator(
             "gradle",
             "build.gradle.kts",
             Ecosystem::Java,
             15,
+            Arc::clone(&validator),
         ));
     }
 
     // Check for Maven (priority 16)
+    // Note: Maven uses the same validator but will return Unknown for most commands
     let pom_xml = dir.join("pom.xml");
     if pom_xml.exists() {
-        runners.push(DetectedRunner::new("maven", "pom.xml", Ecosystem::Java, 16));
+        runners.push(DetectedRunner::with_validator(
+            "maven",
+            "pom.xml",
+            Ecosystem::Java,
+            16,
+            Arc::clone(&validator),
+        ));
     }
 
     runners

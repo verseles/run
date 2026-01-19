@@ -23,6 +23,7 @@ pub mod swift;
 pub mod zig;
 
 use std::path::Path;
+use std::sync::Arc;
 
 /// Indicates if a command is supported by a runner
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -35,16 +36,24 @@ pub enum CommandSupport {
     Unknown,
 }
 
-/// Trait for validating commands against a specific detector
-pub trait CommandValidator {
+/// Trait for validating commands against a specific detector.
+/// Implementations must be Send + Sync to allow sharing across threads.
+pub trait CommandValidator: Send + Sync {
     /// Check if the detected runner supports the given command
+    fn supports_command(&self, working_dir: &Path, command: &str) -> CommandSupport;
+}
+
+/// Default validator that returns Unknown for all commands.
+/// Used for runners that don't have specific validation logic yet.
+pub struct UnknownValidator;
+
+impl CommandValidator for UnknownValidator {
     fn supports_command(&self, _working_dir: &Path, _command: &str) -> CommandSupport {
         CommandSupport::Unknown
     }
 }
 
 /// Represents a detected runner with its command and configuration
-#[derive(Debug, Clone, PartialEq)]
 pub struct DetectedRunner {
     /// Name of the runner (e.g., "pnpm", "cargo", "poetry")
     pub name: String,
@@ -54,16 +63,76 @@ pub struct DetectedRunner {
     pub ecosystem: Ecosystem,
     /// Priority (lower = higher priority)
     pub priority: u8,
+    /// Validator for checking command support
+    validator: Arc<dyn CommandValidator>,
+}
+
+impl std::fmt::Debug for DetectedRunner {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DetectedRunner")
+            .field("name", &self.name)
+            .field("detected_file", &self.detected_file)
+            .field("ecosystem", &self.ecosystem)
+            .field("priority", &self.priority)
+            .field("validator", &"<dyn CommandValidator>")
+            .finish()
+    }
+}
+
+impl Clone for DetectedRunner {
+    fn clone(&self) -> Self {
+        Self {
+            name: self.name.clone(),
+            detected_file: self.detected_file.clone(),
+            ecosystem: self.ecosystem,
+            priority: self.priority,
+            validator: Arc::clone(&self.validator),
+        }
+    }
+}
+
+impl PartialEq for DetectedRunner {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+            && self.detected_file == other.detected_file
+            && self.ecosystem == other.ecosystem
+            && self.priority == other.priority
+    }
 }
 
 impl DetectedRunner {
+    /// Create a new DetectedRunner with an UnknownValidator.
+    /// Use `with_validator` for runners with specific validation logic.
     pub fn new(name: &str, detected_file: &str, ecosystem: Ecosystem, priority: u8) -> Self {
+        Self::with_validator(
+            name,
+            detected_file,
+            ecosystem,
+            priority,
+            Arc::new(UnknownValidator),
+        )
+    }
+
+    /// Create a new DetectedRunner with a specific validator.
+    pub fn with_validator(
+        name: &str,
+        detected_file: &str,
+        ecosystem: Ecosystem,
+        priority: u8,
+        validator: Arc<dyn CommandValidator>,
+    ) -> Self {
         Self {
             name: name.to_string(),
             detected_file: detected_file.to_string(),
             ecosystem,
             priority,
+            validator,
         }
+    }
+
+    /// Check if this runner supports the given command.
+    pub fn supports_command(&self, command: &str, working_dir: &Path) -> CommandSupport {
+        self.validator.supports_command(working_dir, command)
     }
 
     /// Build the command to execute
@@ -209,6 +278,9 @@ pub fn is_tool_installed(tool: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs::File;
+    use std::io::Write;
+    use tempfile::tempdir;
 
     #[test]
     fn test_build_command_npm() {
@@ -243,5 +315,186 @@ mod tests {
         let runner = DetectedRunner::new("go", "go.mod", Ecosystem::Go, 12);
         let cmd = runner.build_command("build", &[]);
         assert_eq!(cmd, vec!["go", "build"]);
+    }
+
+    // Validator integration tests (moved from validators.rs)
+
+    #[test]
+    fn test_node_script_supported() {
+        let dir = tempdir().unwrap();
+        let mut file = File::create(dir.path().join("package.json")).unwrap();
+        writeln!(file, r#"{{"scripts": {{"test": "jest", "build": "tsc"}}}}"#).unwrap();
+
+        let runner = DetectedRunner::with_validator(
+            "npm",
+            "package.json",
+            Ecosystem::NodeJs,
+            4,
+            Arc::new(node::NodeValidator),
+        );
+        assert_eq!(
+            runner.supports_command("test", dir.path()),
+            CommandSupport::Supported
+        );
+        assert_eq!(
+            runner.supports_command("build", dir.path()),
+            CommandSupport::Supported
+        );
+        assert_eq!(
+            runner.supports_command("nonexistent", dir.path()),
+            CommandSupport::NotSupported
+        );
+    }
+
+    #[test]
+    fn test_cargo_builtin() {
+        let dir = tempdir().unwrap();
+        let runner = DetectedRunner::with_validator(
+            "cargo",
+            "Cargo.toml",
+            Ecosystem::Rust,
+            9,
+            Arc::new(rust::RustValidator),
+        );
+
+        assert_eq!(
+            runner.supports_command("build", dir.path()),
+            CommandSupport::Supported
+        );
+        assert_eq!(
+            runner.supports_command("test", dir.path()),
+            CommandSupport::Supported
+        );
+        assert_eq!(
+            runner.supports_command("clippy", dir.path()),
+            CommandSupport::Supported
+        );
+        assert_eq!(
+            runner.supports_command("precommit", dir.path()),
+            CommandSupport::NotSupported
+        );
+    }
+
+    #[test]
+    fn test_make_target_supported() {
+        let dir = tempdir().unwrap();
+        let mut file = File::create(dir.path().join("Makefile")).unwrap();
+        writeln!(
+            file,
+            r#"
+.PHONY: build test precommit
+
+build:
+	cargo build
+
+test:
+	cargo test
+
+precommit: build test
+	@echo "Done"
+"#
+        )
+        .unwrap();
+
+        let runner = DetectedRunner::with_validator(
+            "make",
+            "Makefile",
+            Ecosystem::Generic,
+            21,
+            Arc::new(make::MakeValidator),
+        );
+        assert_eq!(
+            runner.supports_command("build", dir.path()),
+            CommandSupport::Supported
+        );
+        assert_eq!(
+            runner.supports_command("precommit", dir.path()),
+            CommandSupport::Supported
+        );
+        assert_eq!(
+            runner.supports_command("nonexistent", dir.path()),
+            CommandSupport::NotSupported
+        );
+    }
+
+    #[test]
+    fn test_composer_script() {
+        let dir = tempdir().unwrap();
+        let mut file = File::create(dir.path().join("composer.json")).unwrap();
+        writeln!(file, r#"{{"scripts": {{"test": "phpunit"}}}}"#).unwrap();
+
+        let runner = DetectedRunner::with_validator(
+            "composer",
+            "composer.json",
+            Ecosystem::Php,
+            10,
+            Arc::new(php::PhpValidator),
+        );
+        assert_eq!(
+            runner.supports_command("test", dir.path()),
+            CommandSupport::Supported
+        );
+        assert_eq!(
+            runner.supports_command("nonexistent", dir.path()),
+            CommandSupport::NotSupported
+        );
+    }
+
+    #[test]
+    fn test_gradle_task() {
+        let dir = tempdir().unwrap();
+        let mut file = File::create(dir.path().join("build.gradle")).unwrap();
+        writeln!(file, r#"task customTask {{}}"#).unwrap();
+
+        let runner = DetectedRunner::with_validator(
+            "gradle",
+            "build.gradle",
+            Ecosystem::Java,
+            15,
+            Arc::new(java::JavaValidator),
+        );
+        assert_eq!(
+            runner.supports_command("customTask", dir.path()),
+            CommandSupport::Supported
+        );
+        assert_eq!(
+            runner.supports_command("build", dir.path()),
+            CommandSupport::Supported
+        );
+    }
+
+    #[test]
+    fn test_dotnet_builtin() {
+        let dir = tempdir().unwrap();
+        let runner = DetectedRunner::with_validator(
+            "dotnet",
+            "test.csproj",
+            Ecosystem::DotNet,
+            17,
+            Arc::new(dotnet::DotNetValidator),
+        );
+
+        assert_eq!(
+            runner.supports_command("build", dir.path()),
+            CommandSupport::Supported
+        );
+        assert_eq!(
+            runner.supports_command("test", dir.path()),
+            CommandSupport::Supported
+        );
+        assert_eq!(
+            runner.supports_command("nonexistent", dir.path()),
+            CommandSupport::NotSupported
+        );
+    }
+
+    #[test]
+    fn test_unknown_validator_returns_unknown() {
+        let dir = tempdir().unwrap();
+        let runner = DetectedRunner::new("unknown", "file", Ecosystem::Generic, 100);
+        assert_eq!(
+            runner.supports_command("anything", dir.path()),
+            CommandSupport::Unknown
+        );
     }
 }

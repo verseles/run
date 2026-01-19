@@ -11,6 +11,7 @@
 
 use super::{CommandSupport, CommandValidator, DetectedRunner, Ecosystem};
 use std::path::Path;
+use std::sync::Arc;
 
 pub struct DotNetValidator;
 
@@ -56,6 +57,7 @@ impl CommandValidator for DotNetValidator {
 /// Priority: 17
 pub fn detect(dir: &Path) -> Vec<DetectedRunner> {
     let mut runners = Vec::new();
+    let validator: Arc<dyn CommandValidator> = Arc::new(DotNetValidator);
 
     // Check for .csproj or .sln files
     if let Ok(entries) = std::fs::read_dir(dir) {
@@ -64,11 +66,12 @@ pub fn detect(dir: &Path) -> Vec<DetectedRunner> {
             if let Some(ext) = path.extension() {
                 if ext == "csproj" || ext == "sln" {
                     let file_name = path.file_name().unwrap().to_string_lossy().to_string();
-                    runners.push(DetectedRunner::new(
+                    runners.push(DetectedRunner::with_validator(
                         "dotnet",
                         &file_name,
                         Ecosystem::DotNet,
                         17,
+                        Arc::clone(&validator),
                     ));
                     break; // Only detect once
                 }

@@ -11,6 +11,7 @@
 
 use super::{CommandSupport, CommandValidator, DetectedRunner, Ecosystem};
 use std::path::Path;
+use std::sync::Arc;
 
 pub struct RustValidator;
 
@@ -76,21 +77,24 @@ pub fn detect(dir: &Path) -> Vec<DetectedRunner> {
 
     let cargo_toml = dir.join("Cargo.toml");
     let cargo_lock = dir.join("Cargo.lock");
+    let validator: Arc<dyn CommandValidator> = Arc::new(RustValidator);
 
     if cargo_toml.exists() && cargo_lock.exists() {
-        runners.push(DetectedRunner::new(
+        runners.push(DetectedRunner::with_validator(
             "cargo",
             "Cargo.toml",
             Ecosystem::Rust,
             9,
+            Arc::clone(&validator),
         ));
     } else if cargo_toml.exists() {
         // Even without lock file, Cargo.toml is sufficient
-        runners.push(DetectedRunner::new(
+        runners.push(DetectedRunner::with_validator(
             "cargo",
             "Cargo.toml",
             Ecosystem::Rust,
             9,
+            Arc::clone(&validator),
         ));
     }
 

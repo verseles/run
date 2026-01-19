@@ -12,6 +12,7 @@
 use super::{CommandSupport, CommandValidator, DetectedRunner, Ecosystem};
 use std::fs;
 use std::path::Path;
+use std::sync::Arc;
 
 pub struct PhpValidator;
 
@@ -50,20 +51,23 @@ pub fn detect(dir: &Path) -> Vec<DetectedRunner> {
 
     let composer_json = dir.join("composer.json");
     let composer_lock = dir.join("composer.lock");
+    let validator: Arc<dyn CommandValidator> = Arc::new(PhpValidator);
 
     if composer_lock.exists() && composer_json.exists() {
-        runners.push(DetectedRunner::new(
+        runners.push(DetectedRunner::with_validator(
             "composer",
             "composer.lock",
             Ecosystem::Php,
             10,
+            Arc::clone(&validator),
         ));
     } else if composer_json.exists() {
-        runners.push(DetectedRunner::new(
+        runners.push(DetectedRunner::with_validator(
             "composer",
             "composer.json",
             Ecosystem::Php,
             10,
+            Arc::clone(&validator),
         ));
     }
 

@@ -13,6 +13,7 @@ use super::{CommandSupport, CommandValidator, DetectedRunner, Ecosystem};
 use std::collections::HashSet;
 use std::fs;
 use std::path::Path;
+use std::sync::Arc;
 
 pub struct MakeValidator;
 
@@ -66,13 +67,20 @@ impl CommandValidator for MakeValidator {
 /// Priority: 21 (last, as it's the most generic)
 pub fn detect(dir: &Path) -> Vec<DetectedRunner> {
     let mut runners = Vec::new();
+    let validator: Arc<dyn CommandValidator> = Arc::new(MakeValidator);
 
     // Use read_dir to get exact filename (case-sensitive on all platforms)
     if let Ok(entries) = std::fs::read_dir(dir) {
         for entry in entries.flatten() {
             if let Some(name) = entry.file_name().to_str() {
                 if name == "Makefile" || name == "makefile" {
-                    runners.push(DetectedRunner::new("make", name, Ecosystem::Generic, 21));
+                    runners.push(DetectedRunner::with_validator(
+                        "make",
+                        name,
+                        Ecosystem::Generic,
+                        21,
+                        Arc::clone(&validator),
+                    ));
                     break;
                 }
             }

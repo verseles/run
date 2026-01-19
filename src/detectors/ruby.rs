@@ -12,6 +12,7 @@
 use super::{CommandSupport, CommandValidator, DetectedRunner, Ecosystem};
 use std::fs;
 use std::path::Path;
+use std::sync::Arc;
 
 pub struct RubyValidator;
 
@@ -46,30 +47,39 @@ impl CommandValidator for RubyValidator {
 /// Priority: Bundler (13) > Rake (14)
 pub fn detect(dir: &Path) -> Vec<DetectedRunner> {
     let mut runners = Vec::new();
+    let validator: Arc<dyn CommandValidator> = Arc::new(RubyValidator);
 
     // Check for Bundler (priority 13)
     let gemfile = dir.join("Gemfile");
     let gemfile_lock = dir.join("Gemfile.lock");
     if gemfile_lock.exists() && gemfile.exists() {
-        runners.push(DetectedRunner::new(
+        runners.push(DetectedRunner::with_validator(
             "bundler",
             "Gemfile.lock",
             Ecosystem::Ruby,
             13,
+            Arc::clone(&validator),
         ));
     } else if gemfile.exists() {
-        runners.push(DetectedRunner::new(
+        runners.push(DetectedRunner::with_validator(
             "bundler",
             "Gemfile",
             Ecosystem::Ruby,
             13,
+            Arc::clone(&validator),
         ));
     }
 
     // Check for Rake (priority 14)
     let rakefile = dir.join("Rakefile");
     if rakefile.exists() {
-        runners.push(DetectedRunner::new("rake", "Rakefile", Ecosystem::Ruby, 14));
+        runners.push(DetectedRunner::with_validator(
+            "rake",
+            "Rakefile",
+            Ecosystem::Ruby,
+            14,
+            Arc::clone(&validator),
+        ));
     }
 
     runners

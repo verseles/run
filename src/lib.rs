@@ -23,7 +23,6 @@ pub mod error;
 pub mod output;
 pub mod runner;
 pub mod update;
-pub mod validators;
 
 pub use cli::Cli;
 pub use config::Config;

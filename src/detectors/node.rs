@@ -12,6 +12,7 @@
 use super::{CommandSupport, CommandValidator, DetectedRunner, Ecosystem};
 use std::fs;
 use std::path::Path;
+use std::sync::Arc;
 
 pub struct NodeValidator;
 
@@ -49,59 +50,71 @@ pub fn detect(dir: &Path) -> Vec<DetectedRunner> {
     let mut runners = Vec::new();
 
     let has_package_json = dir.join("package.json").exists();
+    let validator: Arc<dyn CommandValidator> = Arc::new(NodeValidator);
 
     // Check for Bun (priority 1)
     let bun_lockb = dir.join("bun.lockb");
     let bun_lock = dir.join("bun.lock");
     if bun_lockb.exists() && has_package_json {
-        runners.push(DetectedRunner::new(
+        runners.push(DetectedRunner::with_validator(
             "bun",
             "bun.lockb",
             Ecosystem::NodeJs,
             1,
+            Arc::clone(&validator),
         ));
     } else if bun_lock.exists() && has_package_json {
-        runners.push(DetectedRunner::new("bun", "bun.lock", Ecosystem::NodeJs, 1));
+        runners.push(DetectedRunner::with_validator(
+            "bun",
+            "bun.lock",
+            Ecosystem::NodeJs,
+            1,
+            Arc::clone(&validator),
+        ));
     }
 
     // Check for PNPM (priority 2)
     let pnpm_lock = dir.join("pnpm-lock.yaml");
     if pnpm_lock.exists() && has_package_json {
-        runners.push(DetectedRunner::new(
+        runners.push(DetectedRunner::with_validator(
             "pnpm",
             "pnpm-lock.yaml",
             Ecosystem::NodeJs,
             2,
+            Arc::clone(&validator),
         ));
     }
 
     // Check for Yarn (priority 3)
     let yarn_lock = dir.join("yarn.lock");
     if yarn_lock.exists() && has_package_json {
-        runners.push(DetectedRunner::new(
+        runners.push(DetectedRunner::with_validator(
             "yarn",
             "yarn.lock",
             Ecosystem::NodeJs,
             3,
+            Arc::clone(&validator),
         ));
     }
 
     // Check for NPM (priority 4)
     let npm_lock = dir.join("package-lock.json");
     if npm_lock.exists() && has_package_json {
-        runners.push(DetectedRunner::new(
+        runners.push(DetectedRunner::with_validator(
             "npm",
             "package-lock.json",
             Ecosystem::NodeJs,
             4,
+            Arc::clone(&validator),
         ));
     } else if has_package_json && runners.is_empty() {
         // Fallback to npm if only package.json exists and no other Node runner detected
-        runners.push(DetectedRunner::new(
+        runners.push(DetectedRunner::with_validator(
             "npm",
             "package.json",
             Ecosystem::NodeJs,
             4,
+            Arc::clone(&validator),
         ));
     }
 

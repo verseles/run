@@ -208,13 +208,16 @@ Description: Docker/container-aware execution
 ### Feature 18: Refactor - Trait-based Command Validation
 Description: Decouple command validation from central match statements and move to individual detectors
 
-- [x] 18.01 Define `CommandValidator` trait in `src/detectors/mod.rs` with `supports_command(&self, project_root: &Path, command: &str) -> CommandSupport` - Commit: (pending)
-- [x] 18.02 Implement `CommandValidator` for `NodeDetector` (move logic from `src/validators.rs`) - Commit: (pending)
-- [x] 18.03 Implement `CommandValidator` for `RustDetector` (move logic from `src/validators.rs`) - Commit: (pending)
-- [x] 18.04 Implement `CommandValidator` for `MakeDetector` (move logic from `src/validators.rs`) - Commit: (pending)
-- [x] 18.05 Implement `CommandValidator` for `PythonDetector`, `PhpDetector`, etc. (even if returning Unknown for now) - Commit: (pending)
-- [x] 18.06 Update `src/validators.rs` to use the trait via the `DetectedRunner` struct - Commit: (pending)
-- [x] 18.07 Verify all existing validation tests pass after refactoring - Commit: (pending)
+- [x] 18.01 Define `CommandValidator` trait in `src/detectors/mod.rs` with `supports_command(&self, project_root: &Path, command: &str) -> CommandSupport` - Commit: 2a4cdb8
+- [x] 18.02 Implement `CommandValidator` for `NodeDetector` (move logic from `src/validators.rs`) - Commit: 2a4cdb8
+- [x] 18.03 Implement `CommandValidator` for `RustDetector` (move logic from `src/validators.rs`) - Commit: 2a4cdb8
+- [x] 18.04 Implement `CommandValidator` for `MakeDetector` (move logic from `src/validators.rs`) - Commit: 2a4cdb8
+- [x] 18.05 Implement `CommandValidator` for `PythonDetector`, `PhpDetector`, etc. (even if returning Unknown for now) - Commit: 2a4cdb8
+- [x] 18.06 Update `src/validators.rs` to use the trait via the `DetectedRunner` struct - Commit: 2a4cdb8
+- [x] 18.07 Verify all existing validation tests pass after refactoring - Commit: 2a4cdb8
+- [x] 18.08 Integrate validators into DetectedRunner via Arc<dyn CommandValidator> - Commit: (pending)
+- [x] 18.09 Delete `src/validators.rs` (logic now lives in detectors) - Commit: (pending)
+- [x] 18.10 Eliminate central match dispatcher in favor of polymorphic dispatch - Commit: (pending)
 
 ### Feature 19: Intelligence - Advanced Command Discovery
 Description: Implement deep parsing for Python, PHP, Go, and Elixir to improve "Smart Selection"
