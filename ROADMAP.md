@@ -205,6 +205,37 @@ Description: Docker/container-aware execution
 - [ ] 17.02 Detect docker-compose.yml/docker-compose.yaml
 - [ ] 17.03 Option to execute commands inside container
 
+### Feature 18: Refactor - Trait-based Command Validation
+Description: Decouple command validation from central match statements and move to individual detectors
+
+- [ ] 18.01 Define `CommandValidator` trait in `src/detectors/mod.rs` with `supports_command(&self, project_root: &Path, command: &str) -> CommandSupport`
+- [ ] 18.02 Implement `CommandValidator` for `NodeDetector` (move logic from `src/validators.rs`)
+- [ ] 18.03 Implement `CommandValidator` for `RustDetector` (move logic from `src/validators.rs`)
+- [ ] 18.04 Implement `CommandValidator` for `MakeDetector` (move logic from `src/validators.rs`)
+- [ ] 18.05 Implement `CommandValidator` for `PythonDetector`, `PhpDetector`, etc. (even if returning Unknown for now)
+- [ ] 18.06 Update `src/validators.rs` to use the trait via the `DetectedRunner` struct
+- [ ] 18.07 Verify all existing validation tests pass after refactoring
+
+### Feature 19: Intelligence - Advanced Command Discovery
+Description: Implement deep parsing for Python, PHP, Go, and Elixir to improve "Smart Selection"
+
+- [ ] 19.01 Implement `pyproject.toml` parser (TOML) to extract `[tool.poetry.scripts]` and `[tool.uv.scripts]`
+- [ ] 19.02 Implement `composer.json` parser (JSON) to extract `scripts` field for PHP
+- [ ] 19.03 Implement `Taskfile.yml` parser (YAML) to extract tasks for Go `task` runner
+- [ ] 19.04 Implement `mix.exs` basic parser (Regex/String) to find Elixir aliases
+- [ ] 19.05 Update `CommandSupport` return values from `Unknown` to `Yes`/`No` based on parser results
+- [ ] 19.06 Add unit tests with real-world manifest file examples for each new parser
+
+### Feature 20: Feature - Custom User Commands via run.toml
+Description: Allow project-specific command overrides and aliases in the local configuration
+
+- [ ] 20.01 Update `Config` and `ProjectConfig` structs in `src/config.rs` to include `commands: HashMap<String, String>`
+- [ ] 20.02 Update `src/runner.rs` logic to prioritize `run.toml` commands over auto-detection
+- [ ] 20.03 Implement a `CustomDetector` that returns a runner for these user-defined commands
+- [ ] 20.04 Support simple aliases (e.g., `t = "test"`) and full commands (e.g., `db:reset = "docker-compose run web rake db:reset"`)
+- [ ] 20.05 Add integration tests verifying `run.toml` overrides standard detectors
+- [ ] 20.06 Document custom command usage in README.md
+
 ## Notes
 
 - v0.1.1 released: 217d180 (docs: release v0.1.1)

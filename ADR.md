@@ -117,3 +117,14 @@
 - Fallback to first `Unknown` if none explicitly support the command
 **Example**: `run precommit` in a Rust project with Makefile correctly runs `make precommit` instead of failing with `cargo precommit`.
 **Consequences**: Smarter runner selection that matches user intent. Eliminates need for `--ignore` flag in common fallback scenarios.
+
+### ADR-011: Trait-based Command Validation
+
+**Status**: 🏗️ Proposed
+**Context**: The command validation logic in `src/validators.rs` is currently centralized in a large match statement. This makes it hard to maintain and scale as more ecosystems are added or deeper manifest parsing is required.
+**Decision**: 
+- Implement a `CommandValidator` trait in `src/detectors/mod.rs`.
+- Each detector (e.g., `NodeDetector`, `PythonDetector`) will implement this trait.
+- Move manifest-specific parsing logic (JSON, YAML, TOML) into the respective detectors.
+- The `validators.rs` module will be refactored to iterate through detected runners and call the trait methods polymorphically.
+**Consequences**: Better separation of concerns. Adding support for a new tool's command discovery only requires changing the relevant detector file. Facilitates Feature 19 (Advanced Command Discovery).
