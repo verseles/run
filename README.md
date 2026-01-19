@@ -24,10 +24,10 @@ Every project has its own package manager. Every time you switch projects, you a
 
 ```bash
 # Linux/macOS
-curl -fsSL https://raw.githubusercontent.com/verseles/run/main/install.sh | bash
+curl -fsSL install.cat/verseles/run | bash
 
 # Windows (PowerShell)
-irm https://raw.githubusercontent.com/verseles/run/main/install.ps1 | iex
+irm install.cat/verseles/run | iex
 
 # Or via Cargo
 cargo install run-cli
