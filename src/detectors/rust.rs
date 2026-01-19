@@ -9,8 +9,65 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU Affero General Public License for more details.
 
-use super::{DetectedRunner, Ecosystem};
+use super::{CommandSupport, CommandValidator, DetectedRunner, Ecosystem};
 use std::path::Path;
+
+pub struct RustValidator;
+
+impl CommandValidator for RustValidator {
+    fn supports_command(&self, _working_dir: &Path, command: &str) -> CommandSupport {
+        static CARGO_BUILTIN: &[&str] = &[
+            "build",
+            "b",
+            "check",
+            "c",
+            "clean",
+            "doc",
+            "d",
+            "new",
+            "init",
+            "add",
+            "remove",
+            "run",
+            "r",
+            "test",
+            "t",
+            "bench",
+            "update",
+            "search",
+            "publish",
+            "install",
+            "uninstall",
+            "clippy",
+            "fmt",
+            "fix",
+            "tree",
+            "vendor",
+            "verify-project",
+            "version",
+            "yank",
+            "help",
+            "generate-lockfile",
+            "locate-project",
+            "metadata",
+            "pkgid",
+            "fetch",
+            "login",
+            "logout",
+            "owner",
+            "package",
+            "report",
+            "rustc",
+            "rustdoc",
+        ];
+
+        if CARGO_BUILTIN.contains(&command) {
+            return CommandSupport::Supported;
+        }
+
+        CommandSupport::NotSupported
+    }
+}
 
 /// Detect Rust package manager (Cargo)
 /// Priority: 9

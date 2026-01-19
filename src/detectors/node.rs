@@ -9,8 +9,39 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU Affero General Public License for more details.
 
-use super::{DetectedRunner, Ecosystem};
+use super::{CommandSupport, CommandValidator, DetectedRunner, Ecosystem};
+use std::fs;
 use std::path::Path;
+
+pub struct NodeValidator;
+
+impl CommandValidator for NodeValidator {
+    fn supports_command(&self, working_dir: &Path, command: &str) -> CommandSupport {
+        let package_json = working_dir.join("package.json");
+        if !package_json.exists() {
+            return CommandSupport::Unknown;
+        }
+
+        let content = match fs::read_to_string(&package_json) {
+            Ok(c) => c,
+            Err(_) => return CommandSupport::Unknown,
+        };
+
+        let json: serde_json::Value = match serde_json::from_str(&content) {
+            Ok(v) => v,
+            Err(_) => return CommandSupport::Unknown,
+        };
+
+        if let Some(scripts) = json.get("scripts").and_then(|s| s.as_object()) {
+            if scripts.contains_key(command) {
+                return CommandSupport::Supported;
+            }
+            return CommandSupport::NotSupported;
+        }
+
+        CommandSupport::Unknown
+    }
+}
 
 /// Detect Node.js package managers
 /// Priority: Bun (1) > PNPM (2) > Yarn (3) > NPM (4)

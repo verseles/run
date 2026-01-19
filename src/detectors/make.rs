@@ -9,8 +9,58 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU Affero General Public License for more details.
 
-use super::{DetectedRunner, Ecosystem};
+use super::{CommandSupport, CommandValidator, DetectedRunner, Ecosystem};
+use std::collections::HashSet;
+use std::fs;
 use std::path::Path;
+
+pub struct MakeValidator;
+
+impl CommandValidator for MakeValidator {
+    fn supports_command(&self, working_dir: &Path, command: &str) -> CommandSupport {
+        let makefile_paths = ["Makefile", "makefile", "GNUmakefile"];
+
+        for makefile_name in makefile_paths {
+            let makefile = working_dir.join(makefile_name);
+            if !makefile.exists() {
+                continue;
+            }
+
+            let content = match fs::read_to_string(&makefile) {
+                Ok(c) => c,
+                Err(_) => continue,
+            };
+
+            let mut targets: HashSet<&str> = HashSet::new();
+
+            for line in content.lines() {
+                let trimmed = line.trim();
+                if trimmed.starts_with('#') || trimmed.starts_with('\t') || trimmed.is_empty() {
+                    continue;
+                }
+
+                if let Some(colon_pos) = trimmed.find(':') {
+                    let target_part = &trimmed[..colon_pos];
+                    if !target_part.contains('$') && !target_part.contains('%') {
+                        for target in target_part.split_whitespace() {
+                            if !target.starts_with('.') {
+                                targets.insert(target);
+                            }
+                        }
+                    }
+                }
+            }
+
+            if targets.contains(command) {
+                return CommandSupport::Supported;
+            }
+
+            return CommandSupport::NotSupported;
+        }
+
+        CommandSupport::Unknown
+    }
+}
 
 /// Detect Makefile projects
 /// Priority: 21 (last, as it's the most generic)

@@ -9,10 +9,9 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU Affero General Public License for more details.
 
-use crate::detectors::{detect_all, is_tool_installed, DetectedRunner, Ecosystem};
-use crate::error::RunError;
+use crate::detectors::{detect_all, is_tool_installed, CommandSupport, DetectedRunner, Ecosystem};
 use crate::output;
-use crate::validators::CommandSupport;
+use crate::RunError;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitStatus, Stdio};
@@ -125,8 +124,7 @@ pub fn check_conflicts(
                 let tools: Vec<&str> = installed.iter().map(|r| r.name.as_str()).collect();
 
                 return Err(RunError::LockfileConflict(format!(
-                    "Detected {} with multiple lockfiles ({}) and multiple tools installed ({}).\n\
-                     Action needed: Remove the outdated lockfile or use --ignore=<tool>",
+                    "Detected {} with multiple lockfiles ({}) and multiple tools installed ({}).\nAction needed: Remove the outdated lockfile or use --ignore=<tool>",
                     ecosystem.as_str(),
                     lockfiles.join(", "),
                     tools.join(", ")
@@ -253,6 +251,7 @@ pub fn execute(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::RunError;
     use std::fs::File;
     use tempfile::tempdir;
 

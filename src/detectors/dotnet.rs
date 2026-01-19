@@ -9,8 +9,48 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU Affero General Public License for more details.
 
-use super::{DetectedRunner, Ecosystem};
+use super::{CommandSupport, CommandValidator, DetectedRunner, Ecosystem};
 use std::path::Path;
+
+pub struct DotNetValidator;
+
+impl CommandValidator for DotNetValidator {
+    fn supports_command(&self, _working_dir: &Path, command: &str) -> CommandSupport {
+        static DOTNET_BUILTIN: &[&str] = &[
+            "build",
+            "clean",
+            "test",
+            "run",
+            "publish",
+            "pack",
+            "restore",
+            "new",
+            "add",
+            "remove",
+            "list",
+            "nuget",
+            "tool",
+            "workload",
+            "watch",
+            "format",
+            "help",
+            "sln",
+            "store",
+            "msbuild",
+            "vstest",
+            "dev-certs",
+            "fsi",
+            "user-secrets",
+            "ef",
+        ];
+
+        if DOTNET_BUILTIN.contains(&command) {
+            return CommandSupport::Supported;
+        }
+
+        CommandSupport::NotSupported
+    }
+}
 
 /// Detect .NET projects
 /// Priority: 17

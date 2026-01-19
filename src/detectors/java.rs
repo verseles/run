@@ -9,8 +9,71 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU Affero General Public License for more details.
 
-use super::{DetectedRunner, Ecosystem};
+use super::{CommandSupport, CommandValidator, DetectedRunner, Ecosystem};
+use std::fs;
 use std::path::Path;
+
+pub struct JavaValidator;
+
+impl CommandValidator for JavaValidator {
+    fn supports_command(&self, working_dir: &Path, command: &str) -> CommandSupport {
+        // We only really support Gradle validation for now
+        // For Maven, it's safer to return Unknown unless we parse pom.xml
+
+        static GRADLE_BUILTIN: &[&str] = &[
+            "build",
+            "clean",
+            "test",
+            "check",
+            "assemble",
+            "jar",
+            "classes",
+            "testClasses",
+            "javadoc",
+            "dependencies",
+            "projects",
+            "properties",
+            "tasks",
+            "help",
+            "wrapper",
+            "init",
+            "buildEnvironment",
+            "components",
+            "model",
+            "dependencyInsight",
+        ];
+
+        if GRADLE_BUILTIN.contains(&command) {
+            return CommandSupport::Supported;
+        }
+
+        let build_gradle = working_dir.join("build.gradle");
+        let build_gradle_kts = working_dir.join("build.gradle.kts");
+
+        let content = if build_gradle.exists() {
+            fs::read_to_string(&build_gradle).ok()
+        } else if build_gradle_kts.exists() {
+            fs::read_to_string(&build_gradle_kts).ok()
+        } else {
+            None
+        };
+
+        if let Some(content) = content {
+            let task_pattern = format!("task {}", command);
+            let task_pattern_paren = format!("task(\"{}\"", command);
+            let task_pattern_single = format!("task('{}'", command);
+
+            if content.contains(&task_pattern)
+                || content.contains(&task_pattern_paren)
+                || content.contains(&task_pattern_single)
+            {
+                return CommandSupport::Supported;
+            }
+        }
+
+        CommandSupport::Unknown
+    }
+}
 
 /// Detect Java/JVM build tools
 /// Priority: Gradle (15) > Maven (16)

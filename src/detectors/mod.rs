@@ -9,20 +9,39 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU Affero General Public License for more details.
 
-mod dotnet;
-mod elixir;
-mod go;
-mod java;
-mod make;
-mod node;
-mod php;
-mod python;
-mod ruby;
-mod rust;
-mod swift;
-mod zig;
+pub mod dotnet;
+pub mod elixir;
+pub mod go;
+pub mod java;
+pub mod make;
+pub mod node;
+pub mod php;
+pub mod python;
+pub mod ruby;
+pub mod rust;
+pub mod swift;
+pub mod zig;
 
 use std::path::Path;
+
+/// Indicates if a command is supported by a runner
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum CommandSupport {
+    /// The command is explicitly supported (e.g., found in package.json scripts)
+    Supported,
+    /// The command is definitely not supported (e.g., not found in package.json scripts)
+    NotSupported,
+    /// It's unknown if the command is supported (e.g., no manifest parsing implemented)
+    Unknown,
+}
+
+/// Trait for validating commands against a specific detector
+pub trait CommandValidator {
+    /// Check if the detected runner supports the given command
+    fn supports_command(&self, _working_dir: &Path, _command: &str) -> CommandSupport {
+        CommandSupport::Unknown
+    }
+}
 
 /// Represents a detected runner with its command and configuration
 #[derive(Debug, Clone, PartialEq)]

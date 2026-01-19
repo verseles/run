@@ -9,8 +9,38 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU Affero General Public License for more details.
 
-use super::{DetectedRunner, Ecosystem};
+use super::{CommandSupport, CommandValidator, DetectedRunner, Ecosystem};
+use std::fs;
 use std::path::Path;
+
+pub struct RubyValidator;
+
+impl CommandValidator for RubyValidator {
+    fn supports_command(&self, working_dir: &Path, command: &str) -> CommandSupport {
+        let rakefile = working_dir.join("Rakefile");
+        if !rakefile.exists() {
+            return CommandSupport::Unknown;
+        }
+
+        let content = match fs::read_to_string(&rakefile) {
+            Ok(c) => c,
+            Err(_) => return CommandSupport::Unknown,
+        };
+
+        let task_pattern = format!("task :{}", command);
+        let task_pattern_string = format!("task \"{}\"", command);
+        let task_pattern_single = format!("task '{}'", command);
+
+        if content.contains(&task_pattern)
+            || content.contains(&task_pattern_string)
+            || content.contains(&task_pattern_single)
+        {
+            return CommandSupport::Supported;
+        }
+
+        CommandSupport::Unknown
+    }
+}
 
 /// Detect Ruby package managers
 /// Priority: Bundler (13) > Rake (14)

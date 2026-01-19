@@ -208,13 +208,13 @@ Description: Docker/container-aware execution
 ### Feature 18: Refactor - Trait-based Command Validation
 Description: Decouple command validation from central match statements and move to individual detectors
 
-- [ ] 18.01 Define `CommandValidator` trait in `src/detectors/mod.rs` with `supports_command(&self, project_root: &Path, command: &str) -> CommandSupport`
-- [ ] 18.02 Implement `CommandValidator` for `NodeDetector` (move logic from `src/validators.rs`)
-- [ ] 18.03 Implement `CommandValidator` for `RustDetector` (move logic from `src/validators.rs`)
-- [ ] 18.04 Implement `CommandValidator` for `MakeDetector` (move logic from `src/validators.rs`)
-- [ ] 18.05 Implement `CommandValidator` for `PythonDetector`, `PhpDetector`, etc. (even if returning Unknown for now)
-- [ ] 18.06 Update `src/validators.rs` to use the trait via the `DetectedRunner` struct
-- [ ] 18.07 Verify all existing validation tests pass after refactoring
+- [x] 18.01 Define `CommandValidator` trait in `src/detectors/mod.rs` with `supports_command(&self, project_root: &Path, command: &str) -> CommandSupport` - Commit: (pending)
+- [x] 18.02 Implement `CommandValidator` for `NodeDetector` (move logic from `src/validators.rs`) - Commit: (pending)
+- [x] 18.03 Implement `CommandValidator` for `RustDetector` (move logic from `src/validators.rs`) - Commit: (pending)
+- [x] 18.04 Implement `CommandValidator` for `MakeDetector` (move logic from `src/validators.rs`) - Commit: (pending)
+- [x] 18.05 Implement `CommandValidator` for `PythonDetector`, `PhpDetector`, etc. (even if returning Unknown for now) - Commit: (pending)
+- [x] 18.06 Update `src/validators.rs` to use the trait via the `DetectedRunner` struct - Commit: (pending)
+- [x] 18.07 Verify all existing validation tests pass after refactoring - Commit: (pending)
 
 ### Feature 19: Intelligence - Advanced Command Discovery
 Description: Implement deep parsing for Python, PHP, Go, and Elixir to improve "Smart Selection"
