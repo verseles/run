@@ -389,9 +389,10 @@ fn test_dry_run_lerna() {
     File::create(dir.path().join("lerna.json")).unwrap();
     File::create(dir.path().join("package.json")).unwrap();
 
+    // Use --ignore=npm because CI environments have both lerna and npm installed
     run_cmd()
         .current_dir(dir.path())
-        .args(["test", "--dry-run"])
+        .args(["test", "--dry-run", "--ignore=npm"])
         .assert()
         .success()
         .stdout(predicate::str::contains("lerna run test"));
