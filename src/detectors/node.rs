@@ -73,6 +73,27 @@ pub fn detect(dir: &Path) -> Vec<DetectedRunner> {
     let has_package_json = dir.join("package.json").exists();
     let validator: Arc<dyn CommandValidator> = Arc::new(NodeValidator);
 
+    // Check for Corepack (packageManager field)
+    if has_package_json {
+        if let Some(manager) = get_corepack_manager(dir) {
+            let (priority, name) = match manager.as_str() {
+                "bun" => (1, "bun"),
+                "pnpm" => (2, "pnpm"),
+                "yarn" => (3, "yarn"),
+                "npm" => (4, "npm"),
+                _ => (4, manager.as_str()),
+            };
+
+            runners.push(DetectedRunner::with_validator(
+                name,
+                "package.json",
+                Ecosystem::NodeJs,
+                priority,
+                Arc::clone(&validator),
+            ));
+        }
+    }
+
     // Check for Bun (priority 1)
     let bun_lockb = dir.join("bun.lockb");
     let bun_lock = dir.join("bun.lock");
@@ -327,5 +348,36 @@ mod tests {
 
         let result = get_corepack_manager(dir.path());
         assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_detect_respects_package_manager() {
+        use std::io::Write;
+        let dir = tempdir().unwrap();
+        let mut file = File::create(dir.path().join("package.json")).unwrap();
+        writeln!(file, r#"{{"packageManager": "pnpm@9.0.0"}}"#).unwrap();
+
+        // No lockfiles
+
+        let runners = detect(dir.path());
+        assert_eq!(runners.len(), 1, "Expected 1 runner, found {:?}", runners);
+        assert_eq!(runners[0].name, "pnpm");
+    }
+
+    #[test]
+    fn test_detect_conflicting_package_manager() {
+        use std::io::Write;
+        let dir = tempdir().unwrap();
+        let mut file = File::create(dir.path().join("package.json")).unwrap();
+        writeln!(file, r#"{{"packageManager": "pnpm@9.0.0"}}"#).unwrap();
+
+        // yarn.lock exists
+        File::create(dir.path().join("yarn.lock")).unwrap();
+
+        let runners = detect(dir.path());
+        // Should detect BOTH yarn (file) and pnpm (packageManager)
+        let names: Vec<&str> = runners.iter().map(|r| r.name.as_str()).collect();
+        assert!(names.contains(&"yarn"), "Should contain yarn");
+        assert!(names.contains(&"pnpm"), "Should contain pnpm");
     }
 }
