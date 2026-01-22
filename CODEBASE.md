@@ -104,12 +104,23 @@ TOML-based with precedence: **defaults < global < local < CLI**
 
 Config fields:
 - `max_levels: u8` - recursive search depth
-- `auto_update: bool` - enable auto-update
 - `ignore_tools: Vec<String>` - tools to skip
 - `verbose: bool` - verbose output
 - `quiet: bool` - quiet mode
+- `[update]` section:
+  - `enabled: bool` - enable auto-update (supports legacy `auto_update` field)
+  - `check_interval_hours: u64` - interval between checks (default: 2)
 
 ### `detectors/mod.rs` - Runner Detection
+
+**`CommandSupport`** enum: `Supported`, `Unsupported`, `Unknown`.
+
+**`CommandValidator`** trait:
+```rust
+pub trait CommandValidator: Send + Sync {
+    fn validate(&self, command: &str, dir: &Path) -> CommandSupport;
+}
+```
 
 **`DetectedRunner`** struct:
 ```rust
@@ -118,10 +129,9 @@ pub struct DetectedRunner {
     pub detected_file: String,  // e.g., "pnpm-lock.yaml"
     pub ecosystem: Ecosystem,   // e.g., NodeJs, Rust
     pub priority: u8,           // lower = higher priority
+    pub validator: Option<Box<dyn CommandValidator>>,
 }
 ```
-
-**`Ecosystem`** enum: NodeJs, Python, Rust, Php, Go, Ruby, Java, DotNet, Elixir, Swift, Zig, Generic
 
 **`detect_all(dir, ignore_list)`** - runs all detectors in priority order, filters ignored tools, sorts by priority.
 
@@ -132,13 +142,15 @@ pub struct DetectedRunner {
 | Function | Purpose |
 |----------|---------|
 | `search_runners(start_dir, max_levels, ignore_list, verbose)` | Recursive search up directory tree |
-| `check_conflicts(runners, verbose)` | Detect/resolve lockfile conflicts within same ecosystem |
+| `select_runner(runners, command, working_dir, verbose)` | Filter runners by command support (validator) |
+| `check_conflicts(runners, working_dir, verbose)` | Detect/resolve lockfile conflicts (uses Corepack for Node.js) |
 | `execute(runner, task, extra_args, working_dir, dry_run, verbose, quiet)` | Spawn process, inherit I/O |
 
 **Conflict resolution logic:**
-1. If only one tool installed → use it with warning
-2. If multiple tools installed → error with instructions
-3. If none installed → error suggesting installation
+1. **Node.js**: Check `package.json` for `packageManager` (Corepack). If found, use that tool.
+2. If only one tool installed → use it with warning.
+3. If multiple tools installed → error with instructions.
+4. If none installed → error suggesting installation.
 
 ### `update.rs` - Auto-Update System
 
@@ -152,18 +164,18 @@ Uses **hickory-resolver** for DNS (Cloudflare 1.1.1.1) + **reqwest** + **tokio**
 | `write_last_check_timestamp()` | Write current time as last check |
 | `perform_update_check()` | Async: fetch GitHub release, compare versions, download, atomic replace |
 | `perform_blocking_update(quiet)` | Synchronous update (--update flag) |
-| `check_update_notification(quiet)` | Display pending update notification |
+| `check_update_notification(quiet)` | Display pending update notification from `update.json` |
 
 **Update flow:**
-1. Check if interval has passed (default: 2 hours)
-2. POST command → spawn detached child process
-3. Write timestamp immediately to prevent concurrent checks
-4. Fetch `https://api.github.com/repos/verseles/run/releases/latest`
-5. Compare remote vs local semver
-6. Download platform-specific binary
-7. Atomic replace (Unix: rename, Windows: backup→rename→delete)
-8. Save `~/.config/run/update.json` with changelog
-9. Next run shows notification, deletes JSON
+1. Check if interval has passed (default: 2 hours, configurable via `[update]`).
+2. POST command → spawn detached child process.
+3. Write timestamp immediately to prevent concurrent checks.
+4. Fetch `https://api.github.com/repos/verseles/run/releases/latest`.
+5. Compare remote vs local semver.
+6. Download platform-specific binary.
+7. Atomic replace (Unix: rename, Windows: backup→rename→delete).
+8. Save `UpdateInfo` to `~/.config/run/update.json` with version and changelog.
+9. Next run shows notification if file exists, then deletes it.
 
 ### `http.rs` - Custom HTTP Client
 
@@ -281,13 +293,14 @@ User: run test --verbose
 | `tokio` | Async runtime for HTTP |
 | `reqwest` | HTTP client (rustls-tls) |
 | `hickory-resolver` | Custom DNS resolver (Cloudflare 1.1.1.1) |
-| `serde` + `serde_json` + `toml` | Serialization |
+| `serde` + `serde_json` + `toml` + `serde_yaml` | Serialization (YAML for PNPM/UV) |
 | `semver` | Version comparison |
 | `owo-colors` | Terminal colors |
 | `dirs` | Platform config paths |
 | `which` | Check if tool is installed |
-| `thiserror` | Error derivation |
+| `thiserror` + `anyhow` | Error derivation and flexible error handling |
 | `chrono` | Date/time for update tracking |
+| `walkdir` | Recursive directory traversal |
 
 ## Testing
 
