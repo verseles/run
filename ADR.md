@@ -32,7 +32,7 @@
 **Context**: Handling differences between OS platforms.
 **Decision**: 
 - Use `which` crate instead of raw shell commands for tool detection
-- Makefile detection uses `read_dir` to get exact filename for case-insensitive filesystems (macOS)
+- Makefile and justfile detection use `read_dir` to get exact filename for case-insensitive filesystems (macOS/Windows)
 - Windows-specific imports guarded with `#[cfg(windows)]` (e.g., `CommandExt` for `creation_flags`)
 - Shell completions generated for bash, zsh, fish, and powershell
 **Consequences**: Robust cross-platform support.

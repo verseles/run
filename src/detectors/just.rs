@@ -116,24 +116,27 @@ fn extract_just_recipes(content: &str) -> HashSet<String> {
 pub fn detect(dir: &Path) -> Vec<DetectedRunner> {
     let mut runners = Vec::new();
 
-    let justfile_names = [
-        ("justfile", "justfile"),
-        ("Justfile", "Justfile"),
-        (".justfile", ".justfile"),
-    ];
+    let justfile_priority = ["justfile", "Justfile", ".justfile"];
 
-    for (filename, detected_name) in &justfile_names {
-        let justfile = dir.join(filename);
-        if justfile.exists() {
-            let validator: Arc<dyn CommandValidator> = Arc::new(JustValidator);
-            runners.push(DetectedRunner::with_validator(
-                "just",
-                detected_name,
-                Ecosystem::Generic,
-                10, // Priority 10 - between PHP (10) and Go (11)
-                validator,
-            ));
-            break; // Only detect one justfile
+    // Use read_dir to get exact filenames (case-sensitive on all platforms)
+    if let Ok(entries) = std::fs::read_dir(dir) {
+        let files: HashSet<String> = entries
+            .flatten()
+            .filter_map(|e| e.file_name().into_string().ok())
+            .collect();
+
+        for &target in &justfile_priority {
+            if files.contains(target) {
+                let validator: Arc<dyn CommandValidator> = Arc::new(JustValidator);
+                runners.push(DetectedRunner::with_validator(
+                    "just",
+                    target,
+                    Ecosystem::Generic,
+                    10, // Priority 10 - between PHP (10) and Go (11)
+                    validator,
+                ));
+                break; // Only detect one justfile
+            }
         }
     }
 
