@@ -225,7 +225,8 @@ pub fn execute(
     quiet: bool,
 ) -> Result<RunResult, RunError> {
     // Check if the tool is installed (skip for dry-run)
-    if !dry_run && !is_tool_installed(&runner.name) {
+    // Skip check for custom runners as they define their own commands
+    if !dry_run && runner.ecosystem != Ecosystem::Custom && !is_tool_installed(&runner.name) {
         return Err(RunError::ToolNotInstalled(format!(
             "{} is not installed. Please install it to continue.",
             runner.name

@@ -9,6 +9,7 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU Affero General Public License for more details.
 
+pub mod custom;
 pub mod dotnet;
 pub mod elixir;
 pub mod go;
@@ -24,6 +25,7 @@ pub mod rust;
 pub mod swift;
 pub mod zig;
 
+use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -67,6 +69,8 @@ pub struct DetectedRunner {
     pub priority: u8,
     /// Validator for checking command support
     validator: Arc<dyn CommandValidator>,
+    /// Custom commands defined by the user (if any)
+    pub custom_commands: Option<HashMap<String, String>>,
 }
 
 impl std::fmt::Debug for DetectedRunner {
@@ -77,6 +81,7 @@ impl std::fmt::Debug for DetectedRunner {
             .field("ecosystem", &self.ecosystem)
             .field("priority", &self.priority)
             .field("validator", &"<dyn CommandValidator>")
+            .field("custom_commands", &self.custom_commands)
             .finish()
     }
 }
@@ -89,6 +94,7 @@ impl Clone for DetectedRunner {
             ecosystem: self.ecosystem,
             priority: self.priority,
             validator: Arc::clone(&self.validator),
+            custom_commands: self.custom_commands.clone(),
         }
     }
 }
@@ -99,6 +105,7 @@ impl PartialEq for DetectedRunner {
             && self.detected_file == other.detected_file
             && self.ecosystem == other.ecosystem
             && self.priority == other.priority
+            && self.custom_commands == other.custom_commands
     }
 }
 
@@ -129,6 +136,26 @@ impl DetectedRunner {
             ecosystem,
             priority,
             validator,
+            custom_commands: None,
+        }
+    }
+
+    /// Create a new DetectedRunner with custom commands
+    pub fn with_custom_commands(
+        name: &str,
+        detected_file: &str,
+        ecosystem: Ecosystem,
+        priority: u8,
+        validator: Arc<dyn CommandValidator>,
+        custom_commands: HashMap<String, String>,
+    ) -> Self {
+        Self {
+            name: name.to_string(),
+            detected_file: detected_file.to_string(),
+            ecosystem,
+            priority,
+            validator,
+            custom_commands: Some(custom_commands),
         }
     }
 
@@ -139,6 +166,22 @@ impl DetectedRunner {
 
     /// Build the command to execute
     pub fn build_command(&self, task: &str, extra_args: &[String]) -> Vec<String> {
+        // First check if this is a custom command
+        if let Some(commands) = &self.custom_commands {
+            if let Some(cmd_str) = commands.get(task) {
+                let mut parts = match shell_words::split(cmd_str) {
+                    Ok(p) => p,
+                    Err(_) => {
+                        // Fallback to simple whitespace splitting if parsing fails
+                        // or should we handle error? For now, fallback seems safe-ish
+                        cmd_str.split_whitespace().map(|s| s.to_string()).collect()
+                    }
+                };
+                parts.extend(extra_args.iter().cloned());
+                return parts;
+            }
+        }
+
         let mut cmd = match self.name.as_str() {
             // Node.js ecosystem
             "bun" => vec!["bun".to_string(), "run".to_string(), task.to_string()],
@@ -224,6 +267,7 @@ pub enum Ecosystem {
     Swift,
     Zig,
     Generic,
+    Custom,
 }
 
 impl Ecosystem {
@@ -241,6 +285,7 @@ impl Ecosystem {
             Ecosystem::Swift => "Swift",
             Ecosystem::Zig => "Zig",
             Ecosystem::Generic => "Generic",
+            Ecosystem::Custom => "Custom",
         }
     }
 }
@@ -262,6 +307,7 @@ pub fn detect_all(dir: &Path, ignore_list: &[String]) -> Vec<DetectedRunner> {
     };
 
     // Run all detectors in priority order
+    add_runners(custom::detect(dir)); // Custom commands (0) - highest priority
     add_runners(monorepo::detect(dir)); // Monorepo tools (0) - highest priority
     add_runners(node::detect(dir)); // Node.js (1-4)
     add_runners(python::detect(dir)); // Python (5-8)
@@ -508,5 +554,23 @@ precommit: build test
             runner.supports_command("anything", dir.path()),
             CommandSupport::Unknown
         );
+    }
+
+    #[test]
+    fn test_build_custom_command() {
+        let mut commands = HashMap::new();
+        commands.insert("hello".to_string(), "echo 'hello world'".to_string());
+
+        let runner = DetectedRunner::with_custom_commands(
+            "custom",
+            "run.toml",
+            Ecosystem::Custom,
+            0,
+            Arc::new(UnknownValidator),
+            commands,
+        );
+
+        let cmd = runner.build_command("hello", &[]);
+        assert_eq!(cmd, vec!["echo", "hello world"]);
     }
 }
