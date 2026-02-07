@@ -468,8 +468,8 @@ mod tests {
 
         // ALTERNATIVE: Check if `read_last_check_timestamp()` returns None.
         if read_last_check_timestamp().is_none() {
-             let result = should_check_update(2);
-             assert!(result);
+            let result = should_check_update(2);
+            assert!(result);
         } else {
             // If it returns Some, it means we have a file.
             // We can't easily delete it without knowing where it is reliably if it's the real user config.

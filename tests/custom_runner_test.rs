@@ -51,10 +51,7 @@ fn test_custom_command_override() {
     // Create a package.json that would normally be detected
     fs::write(
         &package_json,
-        format!(
-            r#"{{ "scripts": {{ "test": "{} npm test" }} }}"#,
-            ECHO_CMD
-        ),
+        format!(r#"{{ "scripts": {{ "test": "{} npm test" }} }}"#, ECHO_CMD),
     )
     .unwrap();
 
@@ -121,10 +118,7 @@ fn test_empty_custom_command_is_ignored() {
     // Create package.json so detection falls back to npm if custom is ignored
     fs::write(
         &package_json,
-        format!(
-            r#"{{ "scripts": {{ "test": "{} npm test" }} }}"#,
-            ECHO_CMD
-        ),
+        format!(r#"{{ "scripts": {{ "test": "{} npm test" }} }}"#, ECHO_CMD),
     )
     .unwrap();
 
