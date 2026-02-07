@@ -66,6 +66,15 @@ pub fn check_conflicts(
         return Err(RunError::RunnerNotFound(0));
     }
 
+    // Priority 0 check for custom runners
+    // If a custom runner is detected, it should override conflicts
+    if let Some(custom_runner) = runners.iter().find(|r| r.ecosystem == Ecosystem::Custom) {
+        if verbose {
+            output::info("Using custom runner (highest priority)");
+        }
+        return Ok(custom_runner.clone());
+    }
+
     if runners.len() == 1 {
         return Ok(runners[0].clone());
     }
@@ -225,7 +234,8 @@ pub fn execute(
     quiet: bool,
 ) -> Result<RunResult, RunError> {
     // Check if the tool is installed (skip for dry-run)
-    if !dry_run && !is_tool_installed(&runner.name) {
+    // Skip check for custom runners as they define their own commands
+    if !dry_run && runner.ecosystem != Ecosystem::Custom && !is_tool_installed(&runner.name) {
         return Err(RunError::ToolNotInstalled(format!(
             "{} is not installed. Please install it to continue.",
             runner.name
