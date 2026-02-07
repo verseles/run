@@ -45,6 +45,16 @@ pub fn detect(dir: &Path) -> Vec<DetectedRunner> {
             return vec![];
         }
 
+        // Filter out empty commands
+        let valid_commands: HashMap<String, String> = commands
+            .into_iter()
+            .filter(|(_, cmd)| !cmd.trim().is_empty())
+            .collect();
+
+        if valid_commands.is_empty() {
+            return vec![];
+        }
+
         // Return a single runner for the custom commands
         // Priority 0 means it overrides everything else
         vec![DetectedRunner::with_custom_commands(
@@ -53,9 +63,9 @@ pub fn detect(dir: &Path) -> Vec<DetectedRunner> {
             Ecosystem::Custom,
             0,
             Arc::new(CustomValidator {
-                commands: commands.clone(),
+                commands: valid_commands.clone(),
             }),
-            commands,
+            valid_commands,
         )]
     } else {
         vec![]

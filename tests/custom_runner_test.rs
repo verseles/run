@@ -86,10 +86,6 @@ fn test_complex_command_parsing() {
 
     // On Windows, single quotes inside double quotes might behave differently with cmd /C echo
     // But for simplicity let's test a simple string first or adjust for platform.
-    // 'shell-words' handles quoting, but the underlying shell (cmd.exe) might not strip single quotes like sh does.
-
-    // Using a simpler test case that doesn't rely on shell quote stripping differences
-    // just to verify arguments are passed.
 
     #[cfg(not(windows))]
     let complex_cmd = "echo 'hello world'";
@@ -114,4 +110,71 @@ complex = "{}"
         .assert()
         .success()
         .stdout(predicates::str::contains("hello world"));
+}
+
+#[test]
+fn test_empty_custom_command_is_ignored() {
+    let dir = tempdir().unwrap();
+    let run_toml = dir.path().join("run.toml");
+    let package_json = dir.path().join("package.json");
+
+    // Create package.json so detection falls back to npm if custom is ignored
+    fs::write(
+        &package_json,
+        format!(
+            r#"{{ "scripts": {{ "test": "{} npm test" }} }}"#,
+            ECHO_CMD
+        ),
+    )
+    .unwrap();
+
+    // Custom command is empty, should be filtered out
+    fs::write(
+        &run_toml,
+        r#"
+[commands]
+test = ""
+"#,
+    )
+    .unwrap();
+
+    // Should detect npm because custom command is empty
+    let mut cmd = Command::cargo_bin("run").unwrap();
+    cmd.current_dir(dir.path())
+        .arg("test")
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("npm test"));
+}
+
+#[test]
+fn test_custom_overrides_conflict() {
+    let dir = tempdir().unwrap();
+    let run_toml = dir.path().join("run.toml");
+
+    // Create conflicting lockfiles
+    fs::write(dir.path().join("package.json"), "{}").unwrap();
+    fs::write(dir.path().join("package-lock.json"), "{}").unwrap();
+    fs::write(dir.path().join("yarn.lock"), "").unwrap();
+
+    // Create custom command
+    fs::write(
+        &run_toml,
+        format!(
+            r#"
+[commands]
+test = "{} custom conflict override"
+"#,
+            ECHO_CMD
+        ),
+    )
+    .unwrap();
+
+    // Should succeed with custom command instead of failing with conflict
+    let mut cmd = Command::cargo_bin("run").unwrap();
+    cmd.current_dir(dir.path())
+        .arg("test")
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("custom conflict override"));
 }

@@ -66,6 +66,15 @@ pub fn check_conflicts(
         return Err(RunError::RunnerNotFound(0));
     }
 
+    // Priority 0 check for custom runners
+    // If a custom runner is detected, it should override conflicts
+    if let Some(custom_runner) = runners.iter().find(|r| r.ecosystem == Ecosystem::Custom) {
+        if verbose {
+            output::info("Using custom runner (highest priority)");
+        }
+        return Ok(custom_runner.clone());
+    }
+
     if runners.len() == 1 {
         return Ok(runners[0].clone());
     }
