@@ -142,9 +142,10 @@ test = ""
     let mut cmd = Command::cargo_bin("run").unwrap();
     cmd.current_dir(dir.path())
         .arg("test")
+        .arg("--dry-run")
         .assert()
         .success()
-        .stdout(predicates::str::contains("npm test"));
+        .stdout(predicates::str::contains("npm run test"));
 }
 
 #[test]
