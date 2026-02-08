@@ -166,7 +166,12 @@ impl DetectedRunner {
     }
 
     /// Build the command to execute
-    pub fn build_command(&self, task: &str, extra_args: &[String]) -> Vec<String> {
+    pub fn build_command(
+        &self,
+        task: &str,
+        extra_args: &[String],
+        working_dir: Option<&Path>,
+    ) -> Vec<String> {
         // First check if this is a custom command
         if let Some(commands) = &self.custom_commands {
             if let Some(cmd_str) = commands.get(task) {
@@ -192,7 +197,15 @@ impl DetectedRunner {
 
             // Deno ecosystem
             "deno" => {
-                if task.ends_with(".ts")
+                let is_task = if let Some(dir) = working_dir {
+                    deno::is_defined_task(dir, task)
+                } else {
+                    false
+                };
+
+                if is_task {
+                    vec!["deno".to_string(), "task".to_string(), task.to_string()]
+                } else if task.ends_with(".ts")
                     || task.ends_with(".js")
                     || task.ends_with(".tsx")
                     || task.ends_with(".jsx")
@@ -360,35 +373,35 @@ mod tests {
     #[test]
     fn test_build_command_npm() {
         let runner = DetectedRunner::new("npm", "package.json", Ecosystem::NodeJs, 4);
-        let cmd = runner.build_command("test", &[]);
+        let cmd = runner.build_command("test", &[], None);
         assert_eq!(cmd, vec!["npm", "run", "test"]);
     }
 
     #[test]
     fn test_build_command_with_args() {
         let runner = DetectedRunner::new("npm", "package.json", Ecosystem::NodeJs, 4);
-        let cmd = runner.build_command("test", &["--coverage".to_string()]);
+        let cmd = runner.build_command("test", &["--coverage".to_string()], None);
         assert_eq!(cmd, vec!["npm", "run", "test", "--coverage"]);
     }
 
     #[test]
     fn test_build_command_cargo() {
         let runner = DetectedRunner::new("cargo", "Cargo.toml", Ecosystem::Rust, 9);
-        let cmd = runner.build_command("build", &["--release".to_string()]);
+        let cmd = runner.build_command("build", &["--release".to_string()], None);
         assert_eq!(cmd, vec!["cargo", "build", "--release"]);
     }
 
     #[test]
     fn test_build_command_go_path() {
         let runner = DetectedRunner::new("go", "go.mod", Ecosystem::Go, 12);
-        let cmd = runner.build_command("./cmd/main.go", &[]);
+        let cmd = runner.build_command("./cmd/main.go", &[], None);
         assert_eq!(cmd, vec!["go", "run", "./cmd/main.go"]);
     }
 
     #[test]
     fn test_build_command_go_task() {
         let runner = DetectedRunner::new("go", "go.mod", Ecosystem::Go, 12);
-        let cmd = runner.build_command("build", &[]);
+        let cmd = runner.build_command("build", &[], None);
         assert_eq!(cmd, vec!["go", "build"]);
     }
 
@@ -587,7 +600,34 @@ precommit: build test
             commands,
         );
 
-        let cmd = runner.build_command("hello", &[]);
+        let cmd = runner.build_command("hello", &[], None);
         assert_eq!(cmd, vec!["echo", "hello world"]);
+    }
+
+    #[test]
+    fn test_build_command_deno_task_with_extension() {
+        let dir = tempdir().unwrap();
+        let mut file = File::create(dir.path().join("deno.json")).unwrap();
+        writeln!(file, r#"{{"tasks": {{"lint.ts": "deno lint"}}}}"#).unwrap();
+
+        let runner = DetectedRunner::new("deno", "deno.json", Ecosystem::Deno, 5);
+        let cmd = runner.build_command("lint.ts", &[], Some(dir.path()));
+
+        // Should be treated as a task because it's in deno.json
+        assert_eq!(cmd, vec!["deno", "task", "lint.ts"]);
+    }
+
+    #[test]
+    fn test_build_command_deno_run_file() {
+        let dir = tempdir().unwrap();
+        // No task in deno.json, but file exists (conceptually, though not checked here because is_defined_task returns false)
+        // If is_defined_task returns false, it falls back to extension check.
+        // We assume file exists logic is checked in validator or just fallback.
+
+        let runner = DetectedRunner::new("deno", "deno.json", Ecosystem::Deno, 5);
+        let cmd = runner.build_command("script.ts", &[], Some(dir.path()));
+
+        // Not a task, has extension -> deno run
+        assert_eq!(cmd, vec!["deno", "run", "script.ts"]);
     }
 }

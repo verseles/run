@@ -18,36 +18,8 @@ pub struct DenoValidator;
 
 impl CommandValidator for DenoValidator {
     fn supports_command(&self, working_dir: &Path, command: &str) -> CommandSupport {
-        // Try deno.json first
-        let deno_json = working_dir.join("deno.json");
-        if deno_json.exists() {
-            if let Ok(content) = fs::read_to_string(&deno_json) {
-                if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
-                    if let Some(tasks) = json.get("tasks").and_then(|t| t.as_object()) {
-                        if tasks.contains_key(command) {
-                            return CommandSupport::Supported;
-                        }
-                    }
-                }
-            }
-        }
-
-        // Try deno.jsonc
-        let deno_jsonc = working_dir.join("deno.jsonc");
-        if deno_jsonc.exists() {
-            // Check if file exists, but for now we might fail parsing comments with standard serde_json
-            // If we can't parse, we can't be sure, but existence suggests it might be supported
-            // However, to be safe, we return Unknown if we can't confirm.
-            // A simple heuristic: check if the file contains "tasks" and the command name
-            if let Ok(content) = fs::read_to_string(&deno_jsonc) {
-                // Very basic heuristic to avoid full JSONC parsing complexity
-                if content.contains("\"tasks\"") && content.contains(&format!("\"{}\"", command)) {
-                    // This is a weak check, but better than nothing for JSONC without a parser
-                    // It might return false positives if the command name is mentioned elsewhere
-                    // but Deno runner will fail if task doesn't exist, which is acceptable
-                    return CommandSupport::Supported;
-                }
-            }
+        if is_defined_task(working_dir, command) {
+            return CommandSupport::Supported;
         }
 
         // Also support running files directly if they exist
@@ -62,6 +34,43 @@ impl CommandValidator for DenoValidator {
 
         CommandSupport::NotSupported
     }
+}
+
+/// Check if a task is defined in deno.json or deno.jsonc
+pub fn is_defined_task(working_dir: &Path, command: &str) -> bool {
+    // Try deno.json first
+    let deno_json = working_dir.join("deno.json");
+    if deno_json.exists() {
+        if let Ok(content) = fs::read_to_string(&deno_json) {
+            if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
+                if let Some(tasks) = json.get("tasks").and_then(|t| t.as_object()) {
+                    if tasks.contains_key(command) {
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+
+    // Try deno.jsonc
+    let deno_jsonc = working_dir.join("deno.jsonc");
+    if deno_jsonc.exists() {
+        // Check if file exists, but for now we might fail parsing comments with standard serde_json
+        // If we can't parse, we can't be sure, but existence suggests it might be supported
+        // However, to be safe, we return Unknown if we can't confirm.
+        // A simple heuristic: check if the file contains "tasks" and the command name
+        if let Ok(content) = fs::read_to_string(&deno_jsonc) {
+            // Very basic heuristic to avoid full JSONC parsing complexity
+            if content.contains("\"tasks\"") && content.contains(&format!("\"{}\"", command)) {
+                // This is a weak check, but better than nothing for JSONC without a parser
+                // It might return false positives if the command name is mentioned elsewhere
+                // but Deno runner will fail if task doesn't exist, which is acceptable
+                return true;
+            }
+        }
+    }
+
+    false
 }
 
 /// Detect Deno runner
@@ -171,5 +180,20 @@ mod tests {
             validator.supports_command(dir.path(), "main.ts"),
             CommandSupport::Supported
         );
+    }
+
+    #[test]
+    fn test_is_defined_task() {
+        let dir = tempdir().unwrap();
+        let mut file = File::create(dir.path().join("deno.json")).unwrap();
+        writeln!(
+            file,
+            r#"{{"tasks": {{"lint": "deno lint", "lint.ts": "echo weird task"}}}}"#
+        )
+        .unwrap();
+
+        assert!(is_defined_task(dir.path(), "lint"));
+        assert!(is_defined_task(dir.path(), "lint.ts"));
+        assert!(!is_defined_task(dir.path(), "test"));
     }
 }

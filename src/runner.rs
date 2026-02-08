@@ -243,7 +243,7 @@ pub fn execute(
     }
 
     // Build the command
-    let cmd_parts = runner.build_command(task, extra_args);
+    let cmd_parts = runner.build_command(task, extra_args, Some(working_dir));
     let cmd_string = cmd_parts.join(" ");
 
     if verbose {
