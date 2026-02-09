@@ -10,13 +10,14 @@
 // GNU Affero General Public License for more details.
 
 use super::{CommandSupport, CommandValidator, DetectedRunner, Ecosystem};
+use std::fs;
 use std::path::Path;
 use std::sync::Arc;
 
 pub struct RustValidator;
 
 impl CommandValidator for RustValidator {
-    fn supports_command(&self, _working_dir: &Path, command: &str) -> CommandSupport {
+    fn supports_command(&self, working_dir: &Path, command: &str) -> CommandSupport {
         static CARGO_BUILTIN: &[&str] = &[
             "build",
             "b",
@@ -66,8 +67,33 @@ impl CommandValidator for RustValidator {
             return CommandSupport::Supported;
         }
 
+        // Check for aliases in .cargo/config.toml or .cargo/config
+        if check_cargo_alias(working_dir, command) {
+            return CommandSupport::Supported;
+        }
+
         CommandSupport::NotSupported
     }
+}
+
+fn check_cargo_alias(dir: &Path, command: &str) -> bool {
+    let check_file = |path: std::path::PathBuf| -> bool {
+        if !path.exists() {
+            return false;
+        }
+        if let Ok(content) = fs::read_to_string(path) {
+            if let Ok(config) = content.parse::<toml::Value>() {
+                if let Some(alias) = config.get("alias").and_then(|v| v.as_table()) {
+                    return alias.contains_key(command);
+                }
+            }
+        }
+        false
+    };
+
+    // Check in .cargo/ directory inside the working directory
+    let dot_cargo = dir.join(".cargo");
+    check_file(dot_cargo.join("config.toml")) || check_file(dot_cargo.join("config"))
 }
 
 /// Detect Rust package manager (Cargo)
@@ -160,6 +186,76 @@ mod tests {
         assert_eq!(
             runners[0].supports_command("invalid_command", dir.path()),
             CommandSupport::NotSupported
+        );
+    }
+
+    #[test]
+    fn test_cargo_alias_support() {
+        use std::io::Write;
+        let dir = tempdir().unwrap();
+        File::create(dir.path().join("Cargo.toml")).unwrap();
+
+        let dot_cargo = dir.path().join(".cargo");
+        fs::create_dir(&dot_cargo).unwrap();
+
+        let mut config = File::create(dot_cargo.join("config.toml")).unwrap();
+        writeln!(
+            config,
+            r#"
+[alias]
+my-alias = "run"
+        "#
+        )
+        .unwrap();
+
+        let runner = DetectedRunner::with_validator(
+            "cargo",
+            "Cargo.toml",
+            Ecosystem::Rust,
+            9,
+            Arc::new(RustValidator),
+        );
+
+        assert_eq!(
+            runner.supports_command("my-alias", dir.path()),
+            CommandSupport::Supported
+        );
+        assert_eq!(
+            runner.supports_command("unknown-alias", dir.path()),
+            CommandSupport::NotSupported
+        );
+    }
+
+    #[test]
+    fn test_cargo_legacy_config_alias_support() {
+        use std::io::Write;
+        let dir = tempdir().unwrap();
+        File::create(dir.path().join("Cargo.toml")).unwrap();
+
+        let dot_cargo = dir.path().join(".cargo");
+        fs::create_dir(&dot_cargo).unwrap();
+
+        let mut config = File::create(dot_cargo.join("config")).unwrap();
+        writeln!(
+            config,
+            r#"
+[alias]
+legacy-alias = "test"
+        "#
+        )
+        .unwrap();
+
+        let runner = DetectedRunner::with_validator(
+            "cargo",
+            "Cargo.toml",
+            Ecosystem::Rust,
+            9,
+            Arc::new(RustValidator),
+        );
+
+        assert_eq!(
+            runner.supports_command("legacy-alias", dir.path()),
+            CommandSupport::Supported
         );
     }
 }
