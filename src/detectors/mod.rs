@@ -429,7 +429,7 @@ mod tests {
         );
         assert_eq!(
             runner.supports_command("precommit", dir.path()),
-            CommandSupport::NotSupported
+            CommandSupport::Unknown
         );
     }
 

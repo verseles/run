@@ -10,13 +10,14 @@
 // GNU Affero General Public License for more details.
 
 use super::{CommandSupport, CommandValidator, DetectedRunner, Ecosystem};
+use std::fs;
 use std::path::Path;
 use std::sync::Arc;
 
 pub struct RustValidator;
 
 impl CommandValidator for RustValidator {
-    fn supports_command(&self, _working_dir: &Path, command: &str) -> CommandSupport {
+    fn supports_command(&self, working_dir: &Path, command: &str) -> CommandSupport {
         static CARGO_BUILTIN: &[&str] = &[
             "build",
             "b",
@@ -66,8 +67,57 @@ impl CommandValidator for RustValidator {
             return CommandSupport::Supported;
         }
 
-        CommandSupport::NotSupported
+        // Check for aliases in .cargo/config.toml or .cargo/config
+        if check_cargo_alias(working_dir, command) {
+            return CommandSupport::Supported;
+        }
+
+        // Cargo supports custom subcommands (cargo-<name> binaries) and aliases
+        // may exist in parent directories or $CARGO_HOME, so return Unknown
+        CommandSupport::Unknown
     }
+}
+
+/// Check if a command is defined as an alias in cargo config files.
+/// Checks the project's .cargo/ directory and $CARGO_HOME.
+/// Respects Cargo's precedence: extensionless `config` over `config.toml`.
+fn check_cargo_alias(dir: &Path, command: &str) -> bool {
+    let check_file = |path: &Path| -> bool {
+        if let Ok(content) = fs::read_to_string(path) {
+            if let Ok(config) = content.parse::<toml::Value>() {
+                if let Some(alias) = config.get("alias").and_then(|v| v.as_table()) {
+                    return alias.contains_key(command);
+                }
+            }
+        }
+        false
+    };
+
+    let dot_cargo = dir.join(".cargo");
+
+    // Cargo precedence: extensionless config takes priority over config.toml
+    if check_file(&dot_cargo.join("config")) {
+        return true;
+    }
+    if check_file(&dot_cargo.join("config.toml")) {
+        return true;
+    }
+
+    // Check $CARGO_HOME (defaults to ~/.cargo/)
+    let cargo_home = std::env::var_os("CARGO_HOME")
+        .map(std::path::PathBuf::from)
+        .or_else(|| dirs::home_dir().map(|h| h.join(".cargo")));
+
+    if let Some(home) = cargo_home {
+        if check_file(&home.join("config")) {
+            return true;
+        }
+        if check_file(&home.join("config.toml")) {
+            return true;
+        }
+    }
+
+    false
 }
 
 /// Detect Rust package manager (Cargo)
@@ -159,7 +209,129 @@ mod tests {
         );
         assert_eq!(
             runners[0].supports_command("invalid_command", dir.path()),
-            CommandSupport::NotSupported
+            CommandSupport::Unknown
+        );
+    }
+
+    #[test]
+    fn test_cargo_alias_in_config_toml() {
+        use std::io::Write;
+        let dir = tempdir().unwrap();
+        File::create(dir.path().join("Cargo.toml")).unwrap();
+
+        let dot_cargo = dir.path().join(".cargo");
+        fs::create_dir(&dot_cargo).unwrap();
+
+        let mut config = File::create(dot_cargo.join("config.toml")).unwrap();
+        writeln!(config, "[alias]\nmy-alias = \"run --release\"").unwrap();
+
+        let runner = DetectedRunner::with_validator(
+            "cargo",
+            "Cargo.toml",
+            Ecosystem::Rust,
+            9,
+            Arc::new(RustValidator),
+        );
+
+        assert_eq!(
+            runner.supports_command("my-alias", dir.path()),
+            CommandSupport::Supported
+        );
+        assert_eq!(
+            runner.supports_command("nonexistent", dir.path()),
+            CommandSupport::Unknown
+        );
+    }
+
+    #[test]
+    fn test_cargo_alias_legacy_config() {
+        use std::io::Write;
+        let dir = tempdir().unwrap();
+        File::create(dir.path().join("Cargo.toml")).unwrap();
+
+        let dot_cargo = dir.path().join(".cargo");
+        fs::create_dir(&dot_cargo).unwrap();
+
+        let mut config = File::create(dot_cargo.join("config")).unwrap();
+        writeln!(config, "[alias]\nlegacy-alias = \"test\"").unwrap();
+
+        let runner = DetectedRunner::with_validator(
+            "cargo",
+            "Cargo.toml",
+            Ecosystem::Rust,
+            9,
+            Arc::new(RustValidator),
+        );
+
+        assert_eq!(
+            runner.supports_command("legacy-alias", dir.path()),
+            CommandSupport::Supported
+        );
+    }
+
+    #[test]
+    fn test_cargo_alias_extensionless_takes_precedence() {
+        use std::io::Write;
+        let dir = tempdir().unwrap();
+        File::create(dir.path().join("Cargo.toml")).unwrap();
+
+        let dot_cargo = dir.path().join(".cargo");
+        fs::create_dir(&dot_cargo).unwrap();
+
+        // extensionless config has alias "from-legacy"
+        let mut legacy = File::create(dot_cargo.join("config")).unwrap();
+        writeln!(legacy, "[alias]\nfrom-legacy = \"build\"").unwrap();
+
+        // config.toml has alias "from-toml"
+        let mut toml_cfg = File::create(dot_cargo.join("config.toml")).unwrap();
+        writeln!(toml_cfg, "[alias]\nfrom-toml = \"test\"").unwrap();
+
+        let runner = DetectedRunner::with_validator(
+            "cargo",
+            "Cargo.toml",
+            Ecosystem::Rust,
+            9,
+            Arc::new(RustValidator),
+        );
+
+        // Both should be found (we check both files)
+        assert_eq!(
+            runner.supports_command("from-legacy", dir.path()),
+            CommandSupport::Supported
+        );
+        assert_eq!(
+            runner.supports_command("from-toml", dir.path()),
+            CommandSupport::Supported
+        );
+    }
+
+    #[test]
+    fn test_cargo_alias_array_format() {
+        use std::io::Write;
+        let dir = tempdir().unwrap();
+        File::create(dir.path().join("Cargo.toml")).unwrap();
+
+        let dot_cargo = dir.path().join(".cargo");
+        fs::create_dir(&dot_cargo).unwrap();
+
+        let mut config = File::create(dot_cargo.join("config.toml")).unwrap();
+        writeln!(
+            config,
+            "[alias]\narray-alias = [\"run\", \"--release\", \"--\", \"arg\"]"
+        )
+        .unwrap();
+
+        let runner = DetectedRunner::with_validator(
+            "cargo",
+            "Cargo.toml",
+            Ecosystem::Rust,
+            9,
+            Arc::new(RustValidator),
+        );
+
+        assert_eq!(
+            runner.supports_command("array-alias", dir.path()),
+            CommandSupport::Supported
         );
     }
 }

@@ -30,7 +30,7 @@ run/
 │       ├── monorepo.rs   # Nx, Turborepo, Lerna (priority 0)
 │       ├── node.rs       # Bun, PNPM, Yarn, NPM (priority 1-4) + Corepack
 │       ├── python.rs     # UV, Poetry, Pipenv, Pip (priority 5-8)
-│       ├── rust.rs       # Cargo (priority 9)
+│       ├── rust.rs       # Cargo (priority 9) + alias detection
 │       ├── php.rs        # Composer (priority 10)
 │       ├── just.rs       # Just (priority 10)
 │       ├── go.rs         # Task, Go Modules (priority 11-12)
@@ -113,12 +113,12 @@ Config fields:
 
 ### `detectors/mod.rs` - Runner Detection
 
-**`CommandSupport`** enum: `Supported`, `Unsupported`, `Unknown`.
+**`CommandSupport`** enum: `Supported`, `NotSupported`, `Unknown`.
 
 **`CommandValidator`** trait:
 ```rust
 pub trait CommandValidator: Send + Sync {
-    fn validate(&self, command: &str, dir: &Path) -> CommandSupport;
+    fn supports_command(&self, working_dir: &Path, command: &str) -> CommandSupport;
 }
 ```
 
@@ -129,7 +129,7 @@ pub struct DetectedRunner {
     pub detected_file: String,  // e.g., "pnpm-lock.yaml"
     pub ecosystem: Ecosystem,   // e.g., NodeJs, Rust
     pub priority: u8,           // lower = higher priority
-    pub validator: Option<Box<dyn CommandValidator>>,
+    pub validator: Arc<dyn CommandValidator>,
 }
 ```
 
@@ -370,3 +370,5 @@ run --update        # Force synchronous update
 6. **NO_COLOR support** - Respects the `NO_COLOR` environment variable for accessibility.
 
 7. **RUN_NO_UPDATE=1** - Environment variable to disable auto-update.
+
+8. **Cargo alias detection** - Checks `.cargo/config` (extensionless, higher precedence) and `.cargo/config.toml` in both the project directory and `$CARGO_HOME` (defaults to `~/.cargo/`). Returns `Unknown` for unrecognized commands to support custom subcommands (`cargo-<name>` binaries).

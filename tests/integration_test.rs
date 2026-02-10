@@ -978,7 +978,12 @@ fn test_npm_script_takes_priority() {
 #[test]
 fn test_command_not_supported_error() {
     let dir = tempdir().unwrap();
-    File::create(dir.path().join("Cargo.toml")).unwrap();
+    // Use package.json with explicit scripts — NodeValidator returns NotSupported
+    // for commands not found in scripts (unlike Cargo which returns Unknown for
+    // extensible subcommands)
+    let mut file = File::create(dir.path().join("package.json")).unwrap();
+    writeln!(file, r#"{{"scripts": {{"test": "echo test"}}}}"#).unwrap();
+    File::create(dir.path().join("package-lock.json")).unwrap();
 
     run_cmd()
         .current_dir(dir.path())
