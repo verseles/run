@@ -10,6 +10,7 @@
 // GNU Affero General Public License for more details.
 
 pub mod custom;
+pub mod deno;
 pub mod dotnet;
 pub mod elixir;
 pub mod go;
@@ -189,6 +190,9 @@ impl DetectedRunner {
             "yarn" => vec!["yarn".to_string(), "run".to_string(), task.to_string()],
             "npm" => vec!["npm".to_string(), "run".to_string(), task.to_string()],
 
+            // Deno ecosystem
+            "deno" => vec!["deno".to_string(), "task".to_string(), task.to_string()],
+
             // Python ecosystem
             "uv" => vec!["uv".to_string(), "run".to_string(), task.to_string()],
             "poetry" => vec!["poetry".to_string(), "run".to_string(), task.to_string()],
@@ -256,6 +260,7 @@ impl DetectedRunner {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Ecosystem {
     NodeJs,
+    Deno,
     Python,
     Rust,
     Php,
@@ -274,6 +279,7 @@ impl Ecosystem {
     pub fn as_str(&self) -> &'static str {
         match self {
             Ecosystem::NodeJs => "Node.js",
+            Ecosystem::Deno => "Deno",
             Ecosystem::Python => "Python",
             Ecosystem::Rust => "Rust",
             Ecosystem::Php => "PHP",
@@ -310,6 +316,7 @@ pub fn detect_all(dir: &Path, ignore_list: &[String]) -> Vec<DetectedRunner> {
     add_runners(custom::detect(dir)); // Custom commands (0) - highest priority
     add_runners(monorepo::detect(dir)); // Monorepo tools (0) - highest priority
     add_runners(node::detect(dir)); // Node.js (1-4)
+    add_runners(deno::detect(dir)); // Deno (5)
     add_runners(python::detect(dir)); // Python (5-8)
     add_runners(rust::detect(dir)); // Rust (9)
     add_runners(php::detect(dir)); // PHP (10)
