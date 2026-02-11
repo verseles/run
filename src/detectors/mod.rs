@@ -10,6 +10,7 @@
 // GNU Affero General Public License for more details.
 
 pub mod custom;
+pub mod deno;
 pub mod dotnet;
 pub mod elixir;
 pub mod go;
@@ -198,6 +199,17 @@ impl DetectedRunner {
             // Rust ecosystem
             "cargo" => vec!["cargo".to_string(), task.to_string()],
 
+            // Deno ecosystem
+            "deno" => {
+                if deno::DENO_BUILTIN.contains(&task) {
+                    vec!["deno".to_string(), task.to_string()]
+                } else if task.contains('/') || task.ends_with(".ts") || task.ends_with(".js") {
+                    vec!["deno".to_string(), "run".to_string(), task.to_string()]
+                } else {
+                    vec!["deno".to_string(), "task".to_string(), task.to_string()]
+                }
+            }
+
             // PHP ecosystem
             "composer" => vec!["composer".to_string(), "run".to_string(), task.to_string()],
 
@@ -258,6 +270,7 @@ pub enum Ecosystem {
     NodeJs,
     Python,
     Rust,
+    Deno,
     Php,
     Go,
     Ruby,
@@ -276,6 +289,7 @@ impl Ecosystem {
             Ecosystem::NodeJs => "Node.js",
             Ecosystem::Python => "Python",
             Ecosystem::Rust => "Rust",
+            Ecosystem::Deno => "Deno",
             Ecosystem::Php => "PHP",
             Ecosystem::Go => "Go",
             Ecosystem::Ruby => "Ruby",
@@ -314,6 +328,7 @@ pub fn detect_all(dir: &Path, ignore_list: &[String]) -> Vec<DetectedRunner> {
     add_runners(rust::detect(dir)); // Rust (9)
     add_runners(php::detect(dir)); // PHP (10)
     add_runners(just::detect(dir)); // Just (10)
+    add_runners(deno::detect(dir)); // Deno (22)
     add_runners(go::detect(dir)); // Go (11-12)
     add_runners(ruby::detect(dir)); // Ruby (13-14)
     add_runners(java::detect(dir)); // Java (15-16)
