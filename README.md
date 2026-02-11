@@ -54,6 +54,7 @@ cd src/components && run test    # Finds package.json in parent dirs
 |-----------|----------------------|
 | **Monorepo** | nx → turbo → lerna |
 | **Node.js** | bun → pnpm → yarn → npm |
+| **Deno** | deno |
 | **Python** | uv → poetry → pipenv → pip |
 | **Rust** | cargo |
 | **PHP** | composer |
