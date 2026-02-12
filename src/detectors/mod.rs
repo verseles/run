@@ -30,6 +30,169 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
 
+// Built-in commands that should be run directly without "run"
+const NPM_BUILTINS: &[&str] = &[
+    "install",
+    "i",
+    "test",
+    "t",
+    "start",
+    "stop",
+    "restart",
+    "publish",
+    "version",
+    "uninstall",
+    "remove",
+    "rm",
+    "update",
+    "up",
+    "outdated",
+    "audit",
+    "pack",
+    "login",
+    "logout",
+    "init",
+    "link",
+    "unlink",
+    "list",
+    "ls",
+    "ll",
+    "search",
+    "view",
+    "help",
+    "cache",
+    "doctor",
+    "exec",
+    "set",
+    "get",
+    "config",
+    "prefix",
+    "bin",
+    "root",
+];
+
+const YARN_BUILTINS: &[&str] = &[
+    "add",
+    "audit",
+    "autoclean",
+    "bin",
+    "cache",
+    "config",
+    "create",
+    "dedupe",
+    "dlx",
+    "exec",
+    "generate-lock-entry",
+    "global",
+    "help",
+    "import",
+    "info",
+    "init",
+    "install",
+    "licenses",
+    "link",
+    "list",
+    "lockfile",
+    "login",
+    "logout",
+    "node",
+    "outdated",
+    "owner",
+    "pack",
+    "policies",
+    "publish",
+    "remove",
+    "run",
+    "set",
+    "stage",
+    "tag",
+    "team",
+    "test",
+    "unlink",
+    "unplug",
+    "upgrade",
+    "upgrade-interactive",
+    "version",
+    "versions",
+    "why",
+    "workspace",
+    "workspaces",
+];
+
+const PNPM_BUILTINS: &[&str] = &[
+    "add",
+    "audit",
+    "bin",
+    "config",
+    "create",
+    "dedupe",
+    "deploy",
+    "dlx",
+    "doctor",
+    "env",
+    "exec",
+    "fetch",
+    "help",
+    "import",
+    "init",
+    "install",
+    "install-test",
+    "link",
+    "list",
+    "licenses",
+    "ls",
+    "outdated",
+    "pack",
+    "patch",
+    "patch-commit",
+    "patch-remove",
+    "prune",
+    "publish",
+    "rebuild",
+    "remove",
+    "rm",
+    "root",
+    "run",
+    "server",
+    "setup",
+    "start",
+    "store",
+    "test",
+    "t",
+    "test-recursive",
+    "uninstall",
+    "unlink",
+    "unmount",
+    "update",
+    "up",
+    "why",
+];
+
+const BUN_BUILTINS: &[&str] = &[
+    "add", "bun", "create", "discord", "help", "init", "install", "link", "pm", "remove", "rm",
+    "run", "test", "update", "upgrade", "x",
+];
+
+const PIP_BUILTINS: &[&str] = &[
+    "install",
+    "download",
+    "uninstall",
+    "freeze",
+    "inspect",
+    "list",
+    "show",
+    "check",
+    "config",
+    "search",
+    "cache",
+    "index",
+    "wheel",
+    "hash",
+    "completion",
+    "debug",
+    "help",
+];
+
 /// Indicates if a command is supported by a runner
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum CommandSupport {
@@ -185,16 +348,51 @@ impl DetectedRunner {
 
         let mut cmd = match self.name.as_str() {
             // Node.js ecosystem
-            "bun" => vec!["bun".to_string(), "run".to_string(), task.to_string()],
-            "pnpm" => vec!["pnpm".to_string(), "run".to_string(), task.to_string()],
-            "yarn" => vec!["yarn".to_string(), "run".to_string(), task.to_string()],
-            "npm" => vec!["npm".to_string(), "run".to_string(), task.to_string()],
+            "bun" => {
+                if BUN_BUILTINS.contains(&task) {
+                    vec!["bun".to_string(), task.to_string()]
+                } else {
+                    vec!["bun".to_string(), "run".to_string(), task.to_string()]
+                }
+            }
+            "pnpm" => {
+                if PNPM_BUILTINS.contains(&task) {
+                    vec!["pnpm".to_string(), task.to_string()]
+                } else {
+                    vec!["pnpm".to_string(), "run".to_string(), task.to_string()]
+                }
+            }
+            "yarn" => {
+                if YARN_BUILTINS.contains(&task) {
+                    vec!["yarn".to_string(), task.to_string()]
+                } else {
+                    vec!["yarn".to_string(), "run".to_string(), task.to_string()]
+                }
+            }
+            "npm" => {
+                if NPM_BUILTINS.contains(&task) {
+                    vec!["npm".to_string(), task.to_string()]
+                } else {
+                    vec!["npm".to_string(), "run".to_string(), task.to_string()]
+                }
+            }
 
             // Python ecosystem
             "uv" => vec!["uv".to_string(), "run".to_string(), task.to_string()],
             "poetry" => vec!["poetry".to_string(), "run".to_string(), task.to_string()],
             "pipenv" => vec!["pipenv".to_string(), "run".to_string(), task.to_string()],
-            "pip" => vec!["python".to_string(), "-m".to_string(), task.to_string()],
+            "pip" => {
+                if PIP_BUILTINS.contains(&task) {
+                    vec![
+                        "python".to_string(),
+                        "-m".to_string(),
+                        "pip".to_string(),
+                        task.to_string(),
+                    ]
+                } else {
+                    vec!["python".to_string(), "-m".to_string(), task.to_string()]
+                }
+            }
 
             // Rust ecosystem
             "cargo" => vec!["cargo".to_string(), task.to_string()],
@@ -358,15 +556,72 @@ mod tests {
     #[test]
     fn test_build_command_npm() {
         let runner = DetectedRunner::new("npm", "package.json", Ecosystem::NodeJs, 4);
+        // "test" is a built-in command, so it should run directly
         let cmd = runner.build_command("test", &[]);
-        assert_eq!(cmd, vec!["npm", "run", "test"]);
+        assert_eq!(cmd, vec!["npm", "test"]);
+    }
+
+    #[test]
+    fn test_build_command_npm_run() {
+        let runner = DetectedRunner::new("npm", "package.json", Ecosystem::NodeJs, 4);
+        // "custom-script" is NOT a built-in command, so it should use "run"
+        let cmd = runner.build_command("custom-script", &[]);
+        assert_eq!(cmd, vec!["npm", "run", "custom-script"]);
     }
 
     #[test]
     fn test_build_command_with_args() {
         let runner = DetectedRunner::new("npm", "package.json", Ecosystem::NodeJs, 4);
         let cmd = runner.build_command("test", &["--coverage".to_string()]);
-        assert_eq!(cmd, vec!["npm", "run", "test", "--coverage"]);
+        assert_eq!(cmd, vec!["npm", "test", "--coverage"]);
+    }
+
+    #[test]
+    fn test_build_command_yarn() {
+        let runner = DetectedRunner::new("yarn", "yarn.lock", Ecosystem::NodeJs, 3);
+        // Built-in
+        let cmd = runner.build_command("install", &[]);
+        assert_eq!(cmd, vec!["yarn", "install"]);
+
+        // Custom script
+        let cmd = runner.build_command("my-script", &[]);
+        assert_eq!(cmd, vec!["yarn", "run", "my-script"]);
+    }
+
+    #[test]
+    fn test_build_command_pnpm() {
+        let runner = DetectedRunner::new("pnpm", "pnpm-lock.yaml", Ecosystem::NodeJs, 2);
+        // Built-in
+        let cmd = runner.build_command("add", &["react".to_string()]);
+        assert_eq!(cmd, vec!["pnpm", "add", "react"]);
+
+        // Custom script
+        let cmd = runner.build_command("dev", &[]);
+        assert_eq!(cmd, vec!["pnpm", "run", "dev"]);
+    }
+
+    #[test]
+    fn test_build_command_bun() {
+        let runner = DetectedRunner::new("bun", "bun.lockb", Ecosystem::NodeJs, 1);
+        // Built-in
+        let cmd = runner.build_command("test", &[]);
+        assert_eq!(cmd, vec!["bun", "test"]);
+
+        // Custom script
+        let cmd = runner.build_command("foo", &[]);
+        assert_eq!(cmd, vec!["bun", "run", "foo"]);
+    }
+
+    #[test]
+    fn test_build_command_pip() {
+        let runner = DetectedRunner::new("pip", "requirements.txt", Ecosystem::Python, 8);
+        // Built-in pip command
+        let cmd = runner.build_command("install", &["requests".to_string()]);
+        assert_eq!(cmd, vec!["python", "-m", "pip", "install", "requests"]);
+
+        // Run module
+        let cmd = runner.build_command("pytest", &[]);
+        assert_eq!(cmd, vec!["python", "-m", "pytest"]);
     }
 
     #[test]

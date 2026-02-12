@@ -83,7 +83,7 @@ fn test_dry_run_npm() {
         .args(["test", "--dry-run"])
         .assert()
         .success()
-        .stdout(predicate::str::contains("npm run test"));
+        .stdout(predicate::str::contains("npm test"));
 }
 
 #[test]
@@ -97,7 +97,7 @@ fn test_dry_run_npm_with_lockfile() {
         .args(["test", "--dry-run"])
         .assert()
         .success()
-        .stdout(predicate::str::contains("npm run test"));
+        .stdout(predicate::str::contains("npm test"));
 }
 
 #[test]
@@ -111,7 +111,7 @@ fn test_dry_run_pnpm() {
         .args(["test", "--dry-run"])
         .assert()
         .success()
-        .stdout(predicate::str::contains("pnpm run test"));
+        .stdout(predicate::str::contains("pnpm test"));
 }
 
 #[test]
@@ -125,7 +125,7 @@ fn test_dry_run_yarn() {
         .args(["test", "--dry-run"])
         .assert()
         .success()
-        .stdout(predicate::str::contains("yarn run test"));
+        .stdout(predicate::str::contains("yarn test"));
 }
 
 #[test]
@@ -139,7 +139,7 @@ fn test_dry_run_bun_lockb() {
         .args(["test", "--dry-run"])
         .assert()
         .success()
-        .stdout(predicate::str::contains("bun run test"));
+        .stdout(predicate::str::contains("bun test"));
 }
 
 #[test]
@@ -153,7 +153,7 @@ fn test_dry_run_bun_lock() {
         .args(["test", "--dry-run"])
         .assert()
         .success()
-        .stdout(predicate::str::contains("bun run test"));
+        .stdout(predicate::str::contains("bun test"));
 }
 
 // ============================================================================
@@ -675,7 +675,7 @@ fn test_recursive_search() {
         .args(["test", "--dry-run"])
         .assert()
         .success()
-        .stdout(predicate::str::contains("npm run test"));
+        .stdout(predicate::str::contains("npm test"));
 }
 
 #[test]
@@ -691,7 +691,7 @@ fn test_recursive_search_3_levels() {
         .args(["test", "--dry-run"])
         .assert()
         .success()
-        .stdout(predicate::str::contains("npm run test"));
+        .stdout(predicate::str::contains("npm test"));
 }
 
 #[test]
@@ -739,7 +739,7 @@ fn test_levels_limit_sufficient() {
         .args(["test", "--levels=5", "--dry-run"])
         .assert()
         .success()
-        .stdout(predicate::str::contains("npm run test"));
+        .stdout(predicate::str::contains("npm test"));
 }
 
 // ============================================================================
@@ -756,9 +756,7 @@ fn test_extra_args() {
         .args(["test", "--dry-run", "--", "--coverage", "--verbose"])
         .assert()
         .success()
-        .stdout(predicate::str::contains(
-            "npm run test --coverage --verbose",
-        ));
+        .stdout(predicate::str::contains("npm test --coverage --verbose"));
 }
 
 #[test]
@@ -771,7 +769,7 @@ fn test_extra_args_with_equals() {
         .args(["test", "--dry-run", "--", "--reporter=json"])
         .assert()
         .success()
-        .stdout(predicate::str::contains("npm run test --reporter=json"));
+        .stdout(predicate::str::contains("npm test --reporter=json"));
 }
 
 // ============================================================================
@@ -859,7 +857,7 @@ fn test_priority_nodejs_over_make() {
         .args(["test", "--dry-run"])
         .assert()
         .success()
-        .stdout(predicate::str::contains("npm run test"));
+        .stdout(predicate::str::contains("npm test"));
 }
 
 #[test]
