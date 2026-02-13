@@ -195,6 +195,15 @@ pub fn select_runner(
                 }
                 supported_runners.push(runner);
             }
+            CommandSupport::BuiltIn => {
+                if verbose {
+                    output::info(&format!(
+                        "{} has built-in command '{}'",
+                        runner.name, command
+                    ));
+                }
+                supported_runners.push(runner);
+            }
             CommandSupport::NotSupported => {
                 if verbose {
                     output::info(&format!(
@@ -243,7 +252,7 @@ pub fn execute(
     }
 
     // Build the command
-    let cmd_parts = runner.build_command(task, extra_args);
+    let cmd_parts = runner.build_command(task, extra_args, working_dir);
     let cmd_string = cmd_parts.join(" ");
 
     if verbose {

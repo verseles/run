@@ -16,6 +16,14 @@ use std::sync::Arc;
 
 pub struct NodeValidator;
 
+// List of built-in commands common to npm, yarn, pnpm, bun
+// These should be executed directly, not via "run", unless a script with the same name exists
+const BUILTIN_COMMANDS: &[&str] = &[
+    "install", "test", "start", "restart", "stop", "publish", "version", "audit", "outdated",
+    "ci", "clean-install", "init", "link", "list", "login", "logout", "pack", "prune", "search",
+    "uninstall", "update", "view", "whoami", "add", "remove", "why", "dlx", "create", "exec",
+];
+
 impl CommandValidator for NodeValidator {
     fn supports_command(&self, working_dir: &Path, command: &str) -> CommandSupport {
         let package_json = working_dir.join("package.json");
@@ -37,6 +45,14 @@ impl CommandValidator for NodeValidator {
             if scripts.contains_key(command) {
                 return CommandSupport::Supported;
             }
+        }
+
+        if BUILTIN_COMMANDS.contains(&command) {
+            return CommandSupport::BuiltIn;
+        }
+
+        // If we have a scripts object but the command is not in it and not a builtin
+        if json.get("scripts").is_some() {
             return CommandSupport::NotSupported;
         }
 

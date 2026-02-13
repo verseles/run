@@ -35,6 +35,8 @@ use std::sync::Arc;
 pub enum CommandSupport {
     /// The command is explicitly supported (e.g., found in package.json scripts)
     Supported,
+    /// The command is a built-in command of the tool (e.g., "install", "test" when not in scripts)
+    BuiltIn,
     /// The command is definitely not supported (e.g., not found in package.json scripts)
     NotSupported,
     /// It's unknown if the command is supported (e.g., no manifest parsing implemented)
@@ -166,7 +168,7 @@ impl DetectedRunner {
     }
 
     /// Build the command to execute
-    pub fn build_command(&self, task: &str, extra_args: &[String]) -> Vec<String> {
+    pub fn build_command(&self, task: &str, extra_args: &[String], working_dir: &Path) -> Vec<String> {
         // First check if this is a custom command
         if let Some(commands) = &self.custom_commands {
             if let Some(cmd_str) = commands.get(task) {
@@ -185,10 +187,14 @@ impl DetectedRunner {
 
         let mut cmd = match self.name.as_str() {
             // Node.js ecosystem
-            "bun" => vec!["bun".to_string(), "run".to_string(), task.to_string()],
-            "pnpm" => vec!["pnpm".to_string(), "run".to_string(), task.to_string()],
-            "yarn" => vec!["yarn".to_string(), "run".to_string(), task.to_string()],
-            "npm" => vec!["npm".to_string(), "run".to_string(), task.to_string()],
+            "bun" | "pnpm" | "yarn" | "npm" => {
+                let support = self.validator.supports_command(working_dir, task);
+                if support == CommandSupport::BuiltIn {
+                    vec![self.name.clone(), task.to_string()]
+                } else {
+                    vec![self.name.clone(), "run".to_string(), task.to_string()]
+                }
+            }
 
             // Python ecosystem
             "uv" => vec!["uv".to_string(), "run".to_string(), task.to_string()],
@@ -358,35 +364,35 @@ mod tests {
     #[test]
     fn test_build_command_npm() {
         let runner = DetectedRunner::new("npm", "package.json", Ecosystem::NodeJs, 4);
-        let cmd = runner.build_command("test", &[]);
+        let cmd = runner.build_command("test", &[], Path::new("."));
         assert_eq!(cmd, vec!["npm", "run", "test"]);
     }
 
     #[test]
     fn test_build_command_with_args() {
         let runner = DetectedRunner::new("npm", "package.json", Ecosystem::NodeJs, 4);
-        let cmd = runner.build_command("test", &["--coverage".to_string()]);
+        let cmd = runner.build_command("test", &["--coverage".to_string()], Path::new("."));
         assert_eq!(cmd, vec!["npm", "run", "test", "--coverage"]);
     }
 
     #[test]
     fn test_build_command_cargo() {
         let runner = DetectedRunner::new("cargo", "Cargo.toml", Ecosystem::Rust, 9);
-        let cmd = runner.build_command("build", &["--release".to_string()]);
+        let cmd = runner.build_command("build", &["--release".to_string()], Path::new("."));
         assert_eq!(cmd, vec!["cargo", "build", "--release"]);
     }
 
     #[test]
     fn test_build_command_go_path() {
         let runner = DetectedRunner::new("go", "go.mod", Ecosystem::Go, 12);
-        let cmd = runner.build_command("./cmd/main.go", &[]);
+        let cmd = runner.build_command("./cmd/main.go", &[], Path::new("."));
         assert_eq!(cmd, vec!["go", "run", "./cmd/main.go"]);
     }
 
     #[test]
     fn test_build_command_go_task() {
         let runner = DetectedRunner::new("go", "go.mod", Ecosystem::Go, 12);
-        let cmd = runner.build_command("build", &[]);
+        let cmd = runner.build_command("build", &[], Path::new("."));
         assert_eq!(cmd, vec!["go", "build"]);
     }
 
@@ -585,7 +591,7 @@ precommit: build test
             commands,
         );
 
-        let cmd = runner.build_command("hello", &[]);
+        let cmd = runner.build_command("hello", &[], Path::new("."));
         assert_eq!(cmd, vec!["echo", "hello world"]);
     }
 }
