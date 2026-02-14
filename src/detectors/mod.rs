@@ -191,6 +191,7 @@ impl DetectedRunner {
             "npm" => vec!["npm".to_string(), "run".to_string(), task.to_string()],
 
             // Python ecosystem
+            "rye" => vec!["rye".to_string(), "run".to_string(), task.to_string()],
             "uv" => vec!["uv".to_string(), "run".to_string(), task.to_string()],
             "poetry" => vec!["poetry".to_string(), "run".to_string(), task.to_string()],
             "pipenv" => vec!["pipenv".to_string(), "run".to_string(), task.to_string()],
@@ -367,6 +368,13 @@ mod tests {
         let runner = DetectedRunner::new("npm", "package.json", Ecosystem::NodeJs, 4);
         let cmd = runner.build_command("test", &["--coverage".to_string()]);
         assert_eq!(cmd, vec!["npm", "run", "test", "--coverage"]);
+    }
+
+    #[test]
+    fn test_build_command_rye() {
+        let runner = DetectedRunner::new("rye", "pyproject.toml", Ecosystem::Python, 5);
+        let cmd = runner.build_command("test", &[]);
+        assert_eq!(cmd, vec!["rye", "run", "test"]);
     }
 
     #[test]
