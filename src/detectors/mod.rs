@@ -10,6 +10,7 @@
 // GNU Affero General Public License for more details.
 
 pub mod custom;
+pub mod dart;
 pub mod deno;
 pub mod dotnet;
 pub mod elixir;
@@ -244,6 +245,16 @@ impl DetectedRunner {
             // Zig ecosystem
             "zig" => vec!["zig".to_string(), "build".to_string(), task.to_string()],
 
+            // Dart ecosystem
+            "dart" => {
+                if task.ends_with(".dart") {
+                    vec!["dart".to_string(), "run".to_string(), task.to_string()]
+                } else {
+                    vec!["dart".to_string(), task.to_string()]
+                }
+            }
+            "flutter" => vec!["flutter".to_string(), task.to_string()],
+
             // Just command runner
             "just" => vec!["just".to_string(), task.to_string()],
 
@@ -278,6 +289,7 @@ pub enum Ecosystem {
     DotNet,
     Elixir,
     Swift,
+    Dart,
     Zig,
     Generic,
     Custom,
@@ -297,6 +309,7 @@ impl Ecosystem {
             Ecosystem::DotNet => ".NET",
             Ecosystem::Elixir => "Elixir",
             Ecosystem::Swift => "Swift",
+            Ecosystem::Dart => "Dart",
             Ecosystem::Zig => "Zig",
             Ecosystem::Generic => "Generic",
             Ecosystem::Custom => "Custom",
@@ -335,6 +348,7 @@ pub fn detect_all(dir: &Path, ignore_list: &[String]) -> Vec<DetectedRunner> {
     add_runners(dotnet::detect(dir)); // .NET (17)
     add_runners(elixir::detect(dir)); // Elixir (18)
     add_runners(swift::detect(dir)); // Swift (19)
+    add_runners(dart::detect(dir)); // Dart (19)
     add_runners(zig::detect(dir)); // Zig (20)
     add_runners(make::detect(dir)); // Make (21)
 
