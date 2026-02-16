@@ -139,7 +139,7 @@ test = ""
         .arg("--dry-run")
         .assert()
         .success()
-        .stdout(predicates::str::contains("npm run test"));
+        .stdout(predicates::str::contains("npm test"));
 }
 
 #[test]
