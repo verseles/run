@@ -13,6 +13,7 @@ use clap::{CommandFactory, Parser};
 use clap_complete::generate;
 use run_cli::cli::{Cli, Commands};
 use run_cli::config::Config;
+use run_cli::detectors::{DetectedRunner, Ecosystem, UnknownValidator};
 use run_cli::error::exit_codes;
 use run_cli::output;
 use run_cli::runner::{check_conflicts, execute, search_runners, select_runner};
@@ -20,6 +21,7 @@ use run_cli::update;
 use std::env;
 use std::io;
 use std::process;
+use std::sync::Arc;
 
 fn main() {
     // Check for internal update flag (used by background updater)
@@ -94,19 +96,79 @@ fn main() {
     };
 
     // Search for runners
-    let (runners, working_dir) = match search_runners(
+    let search_result = search_runners(
         &current_dir,
         max_levels,
         &ignore_list,
         verbose,
-    ) {
+    );
+
+    // Prepare to inject custom commands
+    // Filter empty commands
+    let valid_config_commands: Option<std::collections::HashMap<String, String>> =
+        config.commands.as_ref().map(|cmds| {
+            cmds.iter()
+                .filter(|(_, cmd)| !cmd.trim().is_empty())
+                .map(|(k, v)| (k.clone(), v.clone()))
+                .collect()
+        });
+
+    let has_valid_commands = valid_config_commands
+        .as_ref()
+        .map_or(false, |c| !c.is_empty());
+
+    let (mut runners, working_dir) = match search_result {
         Ok(result) => result,
         Err(e) => {
-            output::error(&e.to_string());
-            eprintln!("Hint: Use --levels=N to increase search depth or check if you're in the right directory.");
-            process::exit(e.exit_code());
+            if has_valid_commands {
+                // If we have custom commands, we can proceed even without detected runners
+                (Vec::new(), current_dir.clone())
+            } else {
+                output::error(&e.to_string());
+                eprintln!("Hint: Use --levels=N to increase search depth or check if you're in the right directory.");
+                process::exit(e.exit_code());
+            }
         }
     };
+
+    // Inject custom commands from config
+    if let Some(valid_config_commands) = valid_config_commands {
+        if !valid_config_commands.is_empty() {
+            // Check if we already have a custom runner
+            if let Some(idx) = runners.iter().position(|r| r.ecosystem == Ecosystem::Custom) {
+                // Merge config commands into existing runner (local overrides global)
+                let mut merged_commands = valid_config_commands.clone();
+                if let Some(existing_cmds) = &runners[idx].custom_commands {
+                    merged_commands.extend(existing_cmds.clone());
+                }
+
+                // Update the runner
+                let old_runner = &runners[idx];
+                let new_runner = DetectedRunner::with_custom_commands(
+                    &old_runner.name,
+                    &old_runner.detected_file,
+                    old_runner.ecosystem,
+                    old_runner.priority,
+                    Arc::new(UnknownValidator),
+                    merged_commands,
+                );
+                runners[idx] = new_runner;
+            } else {
+                // Create new runner
+                let new_runner = DetectedRunner::with_custom_commands(
+                    "custom",
+                    "config.toml",
+                    Ecosystem::Custom,
+                    0,
+                    Arc::new(UnknownValidator),
+                    valid_config_commands,
+                );
+                runners.push(new_runner);
+                // Sort by priority (0 first)
+                runners.sort_by_key(|r| r.priority);
+            }
+        }
+    }
 
     // Check for conflicts and select runner based on command support
     let runner = match check_conflicts(&runners, &working_dir, verbose) {
