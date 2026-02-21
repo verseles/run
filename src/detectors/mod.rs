@@ -325,6 +325,12 @@ impl DetectedRunner {
 
     /// Check if this runner supports the given command.
     pub fn supports_command(&self, command: &str, working_dir: &Path) -> CommandSupport {
+        // First check if this is a custom command
+        if let Some(commands) = &self.custom_commands {
+            if commands.contains_key(command) {
+                return CommandSupport::Supported;
+            }
+        }
         self.validator.supports_command(working_dir, command)
     }
 

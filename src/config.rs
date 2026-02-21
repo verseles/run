@@ -10,6 +10,7 @@
 // GNU Affero General Public License for more details.
 
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -63,6 +64,8 @@ pub struct Config {
     pub quiet: Option<bool>,
     /// Update configuration section
     pub update: Option<UpdateConfig>,
+    /// Custom commands overrides
+    pub commands: Option<HashMap<String, String>>,
 }
 
 impl Config {
@@ -125,6 +128,15 @@ impl Config {
             quiet: other.quiet.or(self.quiet),
             update: match (self.update, other.update) {
                 (Some(base), Some(over)) => Some(base.merge(over)),
+                (None, Some(over)) => Some(over),
+                (Some(base), None) => Some(base),
+                (None, None) => None,
+            },
+            commands: match (self.commands, other.commands) {
+                (Some(mut base), Some(over)) => {
+                    base.extend(over);
+                    Some(base)
+                }
                 (None, Some(over)) => Some(over),
                 (Some(base), None) => Some(base),
                 (None, None) => None,
@@ -200,6 +212,7 @@ mod tests {
             verbose: None,
             quiet: None,
             update: None,
+            commands: None,
         };
 
         let override_config = Config {
@@ -209,6 +222,7 @@ mod tests {
             verbose: Some(true),
             quiet: None,
             update: None,
+            commands: None,
         };
 
         let merged = base.merge(override_config);
@@ -216,6 +230,34 @@ mod tests {
         assert!(merged.get_auto_update());
         assert_eq!(merged.ignore_tools, vec!["yarn".to_string()]);
         assert!(merged.get_verbose());
+    }
+
+    #[test]
+    fn test_merge_commands() {
+        let mut base_cmds = HashMap::new();
+        base_cmds.insert("base".to_string(), "echo base".to_string());
+        base_cmds.insert("both".to_string(), "echo base_both".to_string());
+
+        let base = Config {
+            commands: Some(base_cmds),
+            ..Default::default()
+        };
+
+        let mut override_cmds = HashMap::new();
+        override_cmds.insert("over".to_string(), "echo over".to_string());
+        override_cmds.insert("both".to_string(), "echo over_both".to_string());
+
+        let override_config = Config {
+            commands: Some(override_cmds),
+            ..Default::default()
+        };
+
+        let merged = base.merge(override_config);
+        let cmds = merged.commands.unwrap();
+
+        assert_eq!(cmds.get("base").unwrap(), "echo base");
+        assert_eq!(cmds.get("over").unwrap(), "echo over");
+        assert_eq!(cmds.get("both").unwrap(), "echo over_both");
     }
 
     #[test]
