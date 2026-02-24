@@ -193,6 +193,28 @@ const PIP_BUILTINS: &[&str] = &[
     "help",
 ];
 
+const RYE_BUILTINS: &[&str] = &[
+    "add",
+    "remove",
+    "sync",
+    "pin",
+    "show",
+    "build",
+    "publish",
+    "fmt",
+    "lint",
+    "run",
+    "shell",
+    "init",
+    "install",
+    "uninstall",
+    "tools",
+    "self",
+    "config",
+    "version",
+    "help",
+];
+
 /// Indicates if a command is supported by a runner
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum CommandSupport {
@@ -384,6 +406,13 @@ impl DetectedRunner {
             }
 
             // Python ecosystem
+            "rye" => {
+                if RYE_BUILTINS.contains(&task) {
+                    vec!["rye".to_string(), task.to_string()]
+                } else {
+                    vec!["rye".to_string(), "run".to_string(), task.to_string()]
+                }
+            }
             "uv" => vec!["uv".to_string(), "run".to_string(), task.to_string()],
             "poetry" => vec!["poetry".to_string(), "run".to_string(), task.to_string()],
             "pipenv" => vec!["pipenv".to_string(), "run".to_string(), task.to_string()],
@@ -628,6 +657,25 @@ mod tests {
         // Run module
         let cmd = runner.build_command("pytest", &[]);
         assert_eq!(cmd, vec!["python", "-m", "pytest"]);
+    }
+
+    #[test]
+    fn test_build_command_rye() {
+        let runner = DetectedRunner::new("rye", "pyproject.toml", Ecosystem::Python, 5);
+
+        // Built-in
+        let cmd = runner.build_command("sync", &[]);
+        assert_eq!(cmd, vec!["rye", "sync"]);
+
+        let cmd = runner.build_command("add", &["requests".to_string()]);
+        assert_eq!(cmd, vec!["rye", "add", "requests"]);
+
+        // Not built-in -> run
+        let cmd = runner.build_command("test", &[]);
+        assert_eq!(cmd, vec!["rye", "run", "test"]);
+
+        let cmd = runner.build_command("serve", &[]);
+        assert_eq!(cmd, vec!["rye", "run", "serve"]);
     }
 
     #[test]

@@ -56,6 +56,18 @@ impl CommandValidator for PythonValidator {
             }
         }
 
+        // Check [tool.rye.scripts] (Rye scripts)
+        if let Some(scripts) = toml_value
+            .get("tool")
+            .and_then(|t| t.get("rye"))
+            .and_then(|r| r.get("scripts"))
+            .and_then(|s| s.as_table())
+        {
+            if scripts.contains_key(command) {
+                return CommandSupport::Supported;
+            }
+        }
+
         // Python is extensible - uv run / poetry run can also execute
         // commands from the virtual environment (pytest, mypy, etc.)
         // So we return Unknown to allow fallback behavior
@@ -70,6 +82,28 @@ pub fn detect(dir: &Path) -> Vec<DetectedRunner> {
 
     let has_pyproject = dir.join("pyproject.toml").exists();
     let validator: Arc<dyn CommandValidator> = Arc::new(PythonValidator);
+
+    // Check for Rye (priority 5 - same as UV)
+    if has_pyproject {
+        // Check content for [tool.rye]
+        if let Ok(content) = fs::read_to_string(dir.join("pyproject.toml")) {
+            if let Ok(toml_value) = toml::from_str::<toml::Value>(&content) {
+                if toml_value
+                    .get("tool")
+                    .and_then(|t| t.get("rye"))
+                    .is_some()
+                {
+                    runners.push(DetectedRunner::with_validator(
+                        "rye",
+                        "pyproject.toml",
+                        Ecosystem::Python,
+                        5,
+                        Arc::clone(&validator),
+                    ));
+                }
+            }
+        }
+    }
 
     // Check for UV (priority 5)
     let uv_lock = dir.join("uv.lock");
@@ -335,6 +369,44 @@ myapp = "example:main"
         assert_eq!(
             runners[0].supports_command("nonexistent", dir.path()),
             CommandSupport::Unknown
+        );
+    }
+
+    #[test]
+    fn test_detect_rye() {
+        let dir = tempdir().unwrap();
+        let mut file = File::create(dir.path().join("pyproject.toml")).unwrap();
+        writeln!(
+            file,
+            r#"
+[project]
+name = "rye-project"
+version = "0.1.0"
+
+[tool.rye]
+managed = true
+
+[tool.rye.scripts]
+server = "python manage.py runserver"
+"#
+        )
+        .unwrap();
+
+        // Rye also creates requirements.lock
+        File::create(dir.path().join("requirements.lock")).unwrap();
+
+        let runners = detect(dir.path());
+
+        let rye_runner = runners.iter().find(|r| r.name == "rye");
+        assert!(rye_runner.is_some(), "Rye should be detected");
+        assert_eq!(rye_runner.unwrap().priority, 5);
+        assert_eq!(rye_runner.unwrap().detected_file, "pyproject.toml");
+
+        // Test validator
+        let validator = PythonValidator;
+        assert_eq!(
+            validator.supports_command(dir.path(), "server"),
+            CommandSupport::Supported
         );
     }
 }
