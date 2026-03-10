@@ -193,6 +193,29 @@ const PIP_BUILTINS: &[&str] = &[
     "help",
 ];
 
+const RYE_BUILTINS: &[&str] = &[
+    "add",
+    "build",
+    "config",
+    "fetch",
+    "fmt",
+    "init",
+    "install",
+    "lint",
+    "lock",
+    "make-req",
+    "pin",
+    "publish",
+    "remove",
+    "run",
+    "show",
+    "sync",
+    "test",
+    "toolchain",
+    "uninstall",
+    "version",
+];
+
 /// Indicates if a command is supported by a runner
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum CommandSupport {
@@ -384,6 +407,13 @@ impl DetectedRunner {
             }
 
             // Python ecosystem
+            "rye" => {
+                if RYE_BUILTINS.contains(&task) {
+                    vec!["rye".to_string(), task.to_string()]
+                } else {
+                    vec!["rye".to_string(), "run".to_string(), task.to_string()]
+                }
+            }
             "uv" => vec!["uv".to_string(), "run".to_string(), task.to_string()],
             "poetry" => vec!["poetry".to_string(), "run".to_string(), task.to_string()],
             "pipenv" => vec!["pipenv".to_string(), "run".to_string(), task.to_string()],

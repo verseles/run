@@ -56,6 +56,18 @@ impl CommandValidator for PythonValidator {
             }
         }
 
+        // Check [tool.rye.scripts] (Rye custom scripts)
+        if let Some(scripts) = toml_value
+            .get("tool")
+            .and_then(|t| t.get("rye"))
+            .and_then(|r| r.get("scripts"))
+            .and_then(|s| s.as_table())
+        {
+            if scripts.contains_key(command) {
+                return CommandSupport::Supported;
+            }
+        }
+
         // Python is extensible - uv run / poetry run can also execute
         // commands from the virtual environment (pytest, mypy, etc.)
         // So we return Unknown to allow fallback behavior
@@ -64,12 +76,35 @@ impl CommandValidator for PythonValidator {
 }
 
 /// Detect Python package managers
-/// Priority: UV (5) > Poetry (6) > Pipenv (7) > Pip (8)
+/// Priority: Rye (5) > UV (5) > Poetry (6) > Pipenv (7) > Pip (8)
 pub fn detect(dir: &Path) -> Vec<DetectedRunner> {
     let mut runners = Vec::new();
 
-    let has_pyproject = dir.join("pyproject.toml").exists();
+    let pyproject = dir.join("pyproject.toml");
+    let has_pyproject = pyproject.exists();
     let validator: Arc<dyn CommandValidator> = Arc::new(PythonValidator);
+
+    // Check for Rye (priority 5)
+    if has_pyproject {
+        if let Ok(content) = fs::read_to_string(&pyproject) {
+            if let Ok(toml_value) = toml::from_str::<toml::Value>(&content) {
+                if toml_value.get("tool").and_then(|t| t.get("rye")).is_some() {
+                    let lockfile = if dir.join("requirements.lock").exists() {
+                        "requirements.lock"
+                    } else {
+                        "pyproject.toml"
+                    };
+                    runners.push(DetectedRunner::with_validator(
+                        "rye",
+                        lockfile,
+                        Ecosystem::Python,
+                        5,
+                        Arc::clone(&validator),
+                    ));
+                }
+            }
+        }
+    }
 
     // Check for UV (priority 5)
     let uv_lock = dir.join("uv.lock");
@@ -138,6 +173,25 @@ mod tests {
     use std::fs::File;
     use std::io::Write;
     use tempfile::tempdir;
+
+    #[test]
+    fn test_detect_rye() {
+        let dir = tempdir().unwrap();
+        let mut file = File::create(dir.path().join("pyproject.toml")).unwrap();
+        writeln!(
+            file,
+            r#"
+[tool.rye]
+managed = true
+"#
+        )
+        .unwrap();
+
+        let runners = detect(dir.path());
+        assert_eq!(runners.len(), 1);
+        assert_eq!(runners[0].name, "rye");
+        assert_eq!(runners[0].detected_file, "pyproject.toml");
+    }
 
     #[test]
     fn test_detect_uv() {
@@ -235,6 +289,38 @@ serve = "example.server:run"
         // Unknown commands return Unknown (Python is extensible)
         assert_eq!(
             validator.supports_command(dir.path(), "nonexistent"),
+            CommandSupport::Unknown
+        );
+    }
+
+    #[test]
+    fn test_python_validator_rye_scripts() {
+        let dir = tempdir().unwrap();
+        let mut file = File::create(dir.path().join("pyproject.toml")).unwrap();
+        writeln!(
+            file,
+            r#"
+[tool.rye]
+managed = true
+
+[tool.rye.scripts]
+fmt = "rye run black ."
+serve = "python -m http.server"
+"#
+        )
+        .unwrap();
+
+        let validator = PythonValidator;
+        assert_eq!(
+            validator.supports_command(dir.path(), "fmt"),
+            CommandSupport::Supported
+        );
+        assert_eq!(
+            validator.supports_command(dir.path(), "serve"),
+            CommandSupport::Supported
+        );
+        assert_eq!(
+            validator.supports_command(dir.path(), "unknown"),
             CommandSupport::Unknown
         );
     }
