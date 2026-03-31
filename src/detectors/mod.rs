@@ -10,6 +10,7 @@
 // GNU Affero General Public License for more details.
 
 pub mod custom;
+pub mod dart;
 pub mod deno;
 pub mod dotnet;
 pub mod elixir;
@@ -483,6 +484,7 @@ pub enum Ecosystem {
     Elixir,
     Swift,
     Zig,
+    Dart,
     Generic,
     Custom,
 }
@@ -502,6 +504,7 @@ impl Ecosystem {
             Ecosystem::Elixir => "Elixir",
             Ecosystem::Swift => "Swift",
             Ecosystem::Zig => "Zig",
+            Ecosystem::Dart => "Dart",
             Ecosystem::Generic => "Generic",
             Ecosystem::Custom => "Custom",
         }
@@ -532,6 +535,7 @@ pub fn detect_all(dir: &Path, ignore_list: &[String]) -> Vec<DetectedRunner> {
     add_runners(rust::detect(dir)); // Rust (9)
     add_runners(php::detect(dir)); // PHP (10)
     add_runners(just::detect(dir)); // Just (10)
+    add_runners(dart::detect(dir)); // Dart (11)
     add_runners(deno::detect(dir)); // Deno (22)
     add_runners(go::detect(dir)); // Go (11-12)
     add_runners(ruby::detect(dir)); // Ruby (13-14)
