@@ -44,18 +44,6 @@ impl CommandValidator for PythonValidator {
             }
         }
 
-        // Check [tool.rye.scripts] (Rye custom scripts)
-        if let Some(scripts) = toml_value
-            .get("tool")
-            .and_then(|t| t.get("rye"))
-            .and_then(|r| r.get("scripts"))
-            .and_then(|s| s.as_table())
-        {
-            if scripts.contains_key(command) {
-                return CommandSupport::Supported;
-            }
-        }
-
         // Check [tool.poetry.scripts] (Poetry legacy style)
         if let Some(scripts) = toml_value
             .get("tool")
@@ -76,32 +64,12 @@ impl CommandValidator for PythonValidator {
 }
 
 /// Detect Python package managers
-/// Priority: Rye (5) > UV (5) > Poetry (6) > Pipenv (7) > Pip (8)
+/// Priority: UV (5) > Poetry (6) > Pipenv (7) > Pip (8)
 pub fn detect(dir: &Path) -> Vec<DetectedRunner> {
     let mut runners = Vec::new();
 
-    let pyproject_path = dir.join("pyproject.toml");
-    let has_pyproject = pyproject_path.exists();
+    let has_pyproject = dir.join("pyproject.toml").exists();
     let validator: Arc<dyn CommandValidator> = Arc::new(PythonValidator);
-
-    // Check for Rye (priority 5)
-    if has_pyproject {
-        if let Ok(content) = fs::read_to_string(&pyproject_path) {
-            if let Ok(toml_value) = toml::from_str::<toml::Value>(&content) {
-                let is_rye = toml_value.get("tool").and_then(|t| t.get("rye")).is_some();
-
-                if is_rye {
-                    runners.push(DetectedRunner::with_validator(
-                        "rye",
-                        "pyproject.toml",
-                        Ecosystem::Python,
-                        5,
-                        Arc::clone(&validator),
-                    ));
-                }
-            }
-        }
-    }
 
     // Check for UV (priority 5)
     let uv_lock = dir.join("uv.lock");
@@ -172,25 +140,6 @@ mod tests {
     use tempfile::tempdir;
 
     #[test]
-    fn test_detect_rye() {
-        let dir = tempdir().unwrap();
-        let mut file = File::create(dir.path().join("pyproject.toml")).unwrap();
-        writeln!(
-            file,
-            r#"
-[tool.rye]
-managed = true
-"#
-        )
-        .unwrap();
-
-        let runners = detect(dir.path());
-        assert_eq!(runners.len(), 1);
-        assert_eq!(runners[0].name, "rye");
-        assert_eq!(runners[0].priority, 5);
-    }
-
-    #[test]
     fn test_detect_uv() {
         let dir = tempdir().unwrap();
         File::create(dir.path().join("pyproject.toml")).unwrap();
@@ -255,38 +204,6 @@ managed = true
     }
 
     // Validator tests
-
-    #[test]
-    fn test_python_validator_rye_scripts() {
-        let dir = tempdir().unwrap();
-        let mut file = File::create(dir.path().join("pyproject.toml")).unwrap();
-        writeln!(
-            file,
-            r#"
-[tool.rye]
-managed = true
-
-[tool.rye.scripts]
-dev = "python main.py"
-build = "echo 'building'"
-"#
-        )
-        .unwrap();
-
-        let validator = PythonValidator;
-        assert_eq!(
-            validator.supports_command(dir.path(), "dev"),
-            CommandSupport::Supported
-        );
-        assert_eq!(
-            validator.supports_command(dir.path(), "build"),
-            CommandSupport::Supported
-        );
-        assert_eq!(
-            validator.supports_command(dir.path(), "unknown"),
-            CommandSupport::Unknown
-        );
-    }
 
     #[test]
     fn test_python_validator_pep621_scripts() {

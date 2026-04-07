@@ -19,7 +19,7 @@ use clap::{Parser, Subcommand};
 #[command(about = "Universal task runner for modern development", long_about = None)]
 #[command(after_help = "SUPPORTED RUNNERS:
   Node.js:  bun, pnpm, yarn, npm
-  Python:   rye, uv, poetry, pipenv, pip
+  Python:   uv, poetry, pipenv, pip
   Rust:     cargo
   PHP:      composer
   Go:       task, go

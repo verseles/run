@@ -96,7 +96,12 @@ fn main() {
     };
 
     // Search for runners
-    let search_result = search_runners(&current_dir, max_levels, &ignore_list, verbose);
+    let search_result = search_runners(
+        &current_dir,
+        max_levels,
+        &ignore_list,
+        verbose,
+    );
 
     // Prepare to inject custom commands
     // Filter empty commands
@@ -110,7 +115,7 @@ fn main() {
 
     let has_valid_commands = valid_config_commands
         .as_ref()
-        .is_some_and(|c| !c.is_empty());
+        .map_or(false, |c| !c.is_empty());
 
     let (mut runners, working_dir) = match search_result {
         Ok(result) => result,
@@ -130,10 +135,7 @@ fn main() {
     if let Some(valid_config_commands) = valid_config_commands {
         if !valid_config_commands.is_empty() {
             // Check if we already have a custom runner
-            if let Some(idx) = runners
-                .iter()
-                .position(|r| r.ecosystem == Ecosystem::Custom)
-            {
+            if let Some(idx) = runners.iter().position(|r| r.ecosystem == Ecosystem::Custom) {
                 // Merge config commands into existing runner (local overrides global)
                 let mut merged_commands = valid_config_commands.clone();
                 if let Some(existing_cmds) = &runners[idx].custom_commands {
