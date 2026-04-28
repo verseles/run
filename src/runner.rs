@@ -90,27 +90,25 @@ pub fn check_conflicts(
 
     // Check for conflicts within ecosystems
     for (ecosystem, eco_runners) in &by_ecosystem {
-        if eco_runners.len() > 1 {
+        if eco_runners.len() > 1 && *ecosystem == Ecosystem::NodeJs {
             // For Node.js ecosystem, try to use Corepack to resolve
-            if *ecosystem == Ecosystem::NodeJs {
-                if let Some(corepack_pm) = node::get_corepack_manager(working_dir) {
-                    // Find the runner that matches the Corepack package manager
-                    if let Some(runner) = eco_runners.iter().find(|r| r.name == corepack_pm) {
-                        if verbose {
-                            output::info(&format!(
-                                "Using {} (specified by packageManager in package.json)",
-                                corepack_pm
-                            ));
-                        }
-                        return Ok((*runner).clone());
-                    } else {
-                        // Corepack specifies a PM but we don't have a matching lockfile
-                        if verbose {
-                            output::warning(&format!(
-                                "packageManager specifies '{}' but no matching lockfile found",
-                                corepack_pm
-                            ));
-                        }
+            if let Some(corepack_pm) = node::get_corepack_manager(working_dir) {
+                // Find the runner that matches the Corepack package manager
+                if let Some(runner) = eco_runners.iter().find(|r| r.name == corepack_pm) {
+                    if verbose {
+                        output::info(&format!(
+                            "Using {} (specified by packageManager in package.json)",
+                            corepack_pm
+                        ));
+                    }
+                    return Ok((*runner).clone());
+                } else {
+                    // Corepack specifies a PM but we don't have a matching lockfile
+                    if verbose {
+                        output::warning(&format!(
+                            "packageManager specifies '{}' but no matching lockfile found",
+                            corepack_pm
+                        ));
                     }
                 }
             }
@@ -377,5 +375,18 @@ mod tests {
         // Corepack should resolve to pnpm
         let result = check_conflicts(&runners, dir.path(), false).unwrap();
         assert_eq!(result.name, "pnpm");
+    }
+
+    #[test]
+    fn test_check_conflicts_non_nodejs_ecosystem() {
+        let dir = tempdir().unwrap();
+        let runners = vec![
+            DetectedRunner::new("bundler", "Gemfile.lock", Ecosystem::Ruby, 13),
+            DetectedRunner::new("rake", "Rakefile", Ecosystem::Ruby, 14),
+        ];
+
+        // Should not throw a LockfileConflict for non-NodeJs ecosystems
+        let result = check_conflicts(&runners, dir.path(), false).unwrap();
+        assert_eq!(result.name, "bundler"); // Higher priority wins
     }
 }
