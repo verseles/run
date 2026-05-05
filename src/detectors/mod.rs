@@ -173,6 +173,28 @@ const BUN_BUILTINS: &[&str] = &[
     "run", "test", "update", "upgrade", "x",
 ];
 
+const RYE_BUILTINS: &[&str] = &[
+    "add",
+    "build",
+    "fetch",
+    "fmt",
+    "init",
+    "install",
+    "lint",
+    "lock",
+    "make-req",
+    "pin",
+    "publish",
+    "remove",
+    "run",
+    "show",
+    "sync",
+    "test",
+    "toolchain",
+    "uninstall",
+    "version",
+];
+
 const PIP_BUILTINS: &[&str] = &[
     "install",
     "download",
@@ -384,6 +406,13 @@ impl DetectedRunner {
             }
 
             // Python ecosystem
+            "rye" => {
+                if RYE_BUILTINS.contains(&task) {
+                    vec!["rye".to_string(), task.to_string()]
+                } else {
+                    vec!["rye".to_string(), "run".to_string(), task.to_string()]
+                }
+            }
             "uv" => vec!["uv".to_string(), "run".to_string(), task.to_string()],
             "poetry" => vec!["poetry".to_string(), "run".to_string(), task.to_string()],
             "pipenv" => vec!["pipenv".to_string(), "run".to_string(), task.to_string()],
@@ -616,6 +645,22 @@ mod tests {
         // Custom script
         let cmd = runner.build_command("foo", &[]);
         assert_eq!(cmd, vec!["bun", "run", "foo"]);
+    }
+
+    #[test]
+    fn test_build_command_rye() {
+        let runner = DetectedRunner::new("rye", "pyproject.toml", Ecosystem::Python, 5);
+        // Built-in rye command
+        let cmd = runner.build_command("sync", &[]);
+        assert_eq!(cmd, vec!["rye", "sync"]);
+
+        // Custom script
+        let cmd = runner.build_command("lint", &[]);
+        assert_eq!(cmd, vec!["rye", "lint"]);
+
+        // Custom non-builtin script
+        let cmd = runner.build_command("my-custom-script", &[]);
+        assert_eq!(cmd, vec!["rye", "run", "my-custom-script"]);
     }
 
     #[test]

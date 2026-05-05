@@ -56,6 +56,18 @@ impl CommandValidator for PythonValidator {
             }
         }
 
+        // Check [tool.rye.scripts] (Rye)
+        if let Some(scripts) = toml_value
+            .get("tool")
+            .and_then(|t| t.get("rye"))
+            .and_then(|p| p.get("scripts"))
+            .and_then(|s| s.as_table())
+        {
+            if scripts.contains_key(command) {
+                return CommandSupport::Supported;
+            }
+        }
+
         // Python is extensible - uv run / poetry run can also execute
         // commands from the virtual environment (pytest, mypy, etc.)
         // So we return Unknown to allow fallback behavior
@@ -64,12 +76,29 @@ impl CommandValidator for PythonValidator {
 }
 
 /// Detect Python package managers
-/// Priority: UV (5) > Poetry (6) > Pipenv (7) > Pip (8)
+/// Priority: Rye (5) > UV (5) > Poetry (6) > Pipenv (7) > Pip (8)
 pub fn detect(dir: &Path) -> Vec<DetectedRunner> {
     let mut runners = Vec::new();
 
     let has_pyproject = dir.join("pyproject.toml").exists();
     let validator: Arc<dyn CommandValidator> = Arc::new(PythonValidator);
+
+    // Check for Rye (priority 5)
+    if has_pyproject {
+        if let Ok(content) = fs::read_to_string(dir.join("pyproject.toml")) {
+            if let Ok(toml_value) = toml::from_str::<toml::Value>(&content) {
+                if toml_value.get("tool").and_then(|t| t.get("rye")).is_some() {
+                    runners.push(DetectedRunner::with_validator(
+                        "rye",
+                        "pyproject.toml",
+                        Ecosystem::Python,
+                        5,
+                        Arc::clone(&validator),
+                    ));
+                }
+            }
+        }
+    }
 
     // Check for UV (priority 5)
     let uv_lock = dir.join("uv.lock");
@@ -148,6 +177,30 @@ mod tests {
         let runners = detect(dir.path());
         assert_eq!(runners.len(), 1);
         assert_eq!(runners[0].name, "uv");
+    }
+
+    #[test]
+    fn test_detect_rye() {
+        let dir = tempdir().unwrap();
+        let mut file = File::create(dir.path().join("pyproject.toml")).unwrap();
+        writeln!(
+            file,
+            r#"
+[project]
+name = "example"
+
+[tool.rye]
+managed = true
+"#
+        )
+        .unwrap();
+
+        let runners = detect(dir.path());
+        // Rye might be the only one or there could be uv lock if created by some other test, but here just checking presence.
+        // Actually, since we only wrote pyproject.toml, it should be the only one (except maybe pip fallback, but pip is priority 8).
+        // Wait, pip fallback triggers if NO other runner is detected. Since rye is detected, pip fallback won't happen.
+        assert_eq!(runners.len(), 1);
+        assert_eq!(runners[0].name, "rye");
     }
 
     #[test]
@@ -235,6 +288,39 @@ serve = "example.server:run"
         // Unknown commands return Unknown (Python is extensible)
         assert_eq!(
             validator.supports_command(dir.path(), "nonexistent"),
+            CommandSupport::Unknown
+        );
+    }
+
+    #[test]
+    fn test_python_validator_rye_scripts() {
+        let dir = tempdir().unwrap();
+        let mut file = File::create(dir.path().join("pyproject.toml")).unwrap();
+        writeln!(
+            file,
+            r#"
+[project]
+name = "example"
+version = "1.0.0"
+
+[tool.rye.scripts]
+fmt = "rye fmt"
+lint = "rye lint"
+"#
+        )
+        .unwrap();
+
+        let validator = PythonValidator;
+        assert_eq!(
+            validator.supports_command(dir.path(), "fmt"),
+            CommandSupport::Supported
+        );
+        assert_eq!(
+            validator.supports_command(dir.path(), "lint"),
+            CommandSupport::Supported
+        );
+        assert_eq!(
+            validator.supports_command(dir.path(), "unknown"),
             CommandSupport::Unknown
         );
     }

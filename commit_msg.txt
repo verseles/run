@@ -1,0 +1,8 @@
+O PR adiciona suporte ao gerenciador de pacotes Python `rye`. Isso é realmente útil porque permite que o `run` detecte projetos gerenciados pelo `rye` lendo o arquivo `pyproject.toml`, extraia e valide os scripts customizados declarados na seção `[tool.rye.scripts]`, e direcione a execução para o ambiente correto do Rye. A ausência do suporte ao Rye forçaria o usuário a usar comandos manuais, perdendo o benefício da ferramenta universal.
+
+Arquivos alterados:
+- `src/detectors/python.rs`: Lógica principal para detecção (`[tool.rye]`) e validação (`[tool.rye.scripts]`) junto com os respectivos testes.
+- `src/detectors/mod.rs`: Roteamento e mapeamento dos comandos padrão/scripts com suporte a `rye` e seus testes.
+- `README.md`: O README foi modificado pontualmente para refletir `rye` na listagem de ferramentas suportadas para a linguagem Python com sua correta prioridade (antes de `uv`), pois de outra forma estaria incompleto e enganoso sobre as reais capacidades da ferramenta.
+
+Não foram efetuadas modificações em testes de outros detectores, não há dependências adicionais introduzidas, nem limpezas ou arquivos marginais submetidos.
