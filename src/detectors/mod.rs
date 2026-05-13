@@ -384,6 +384,7 @@ impl DetectedRunner {
             }
 
             // Python ecosystem
+            "rye" => vec!["rye".to_string(), "run".to_string(), task.to_string()],
             "uv" => vec!["uv".to_string(), "run".to_string(), task.to_string()],
             "poetry" => vec!["poetry".to_string(), "run".to_string(), task.to_string()],
             "pipenv" => vec!["pipenv".to_string(), "run".to_string(), task.to_string()],
@@ -616,6 +617,13 @@ mod tests {
         // Custom script
         let cmd = runner.build_command("foo", &[]);
         assert_eq!(cmd, vec!["bun", "run", "foo"]);
+    }
+
+    #[test]
+    fn test_build_command_rye() {
+        let runner = DetectedRunner::new("rye", "pyproject.toml", Ecosystem::Python, 5);
+        let cmd = runner.build_command("start", &[]);
+        assert_eq!(cmd, vec!["rye", "run", "start"]);
     }
 
     #[test]
