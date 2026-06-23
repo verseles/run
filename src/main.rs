@@ -210,9 +210,25 @@ fn main() {
     update::spawn_background_update(&config);
 
     // Exit with the same code as the executed command
-    let exit_code = result
-        .exit_status
-        .code()
-        .unwrap_or(exit_codes::GENERIC_ERROR);
+    let exit_code = match result.exit_status.code() {
+        Some(code) => code,
+        None => {
+            #[cfg(unix)]
+            {
+                use std::os::unix::process::ExitStatusExt;
+                if let Some(signal) = result.exit_status.signal() {
+                    // Conventional mapping of signals to exit codes
+                    128 + signal
+                } else {
+                    exit_codes::GENERIC_ERROR
+                }
+            }
+            #[cfg(not(unix))]
+            {
+                exit_codes::GENERIC_ERROR
+            }
+        }
+    };
+
     process::exit(exit_code);
 }
