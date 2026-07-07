@@ -210,9 +210,21 @@ fn main() {
     update::spawn_background_update(&config);
 
     // Exit with the same code as the executed command
+    #[cfg(unix)]
+    let exit_code = result.exit_status.code().unwrap_or_else(|| {
+        use std::os::unix::process::ExitStatusExt;
+        result
+            .exit_status
+            .signal()
+            .map(|s| 128 + s)
+            .unwrap_or(exit_codes::GENERIC_ERROR)
+    });
+
+    #[cfg(not(unix))]
     let exit_code = result
         .exit_status
         .code()
         .unwrap_or(exit_codes::GENERIC_ERROR);
+
     process::exit(exit_code);
 }
